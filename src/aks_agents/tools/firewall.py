@@ -1,8 +1,8 @@
-"""Egress tools (design D59): the flows the hub firewall denied, and the pods behind their source addresses.
+"""Egress tools (design D61): the flows the hub firewall denied, and the pods behind their source addresses.
 
-In a cell without an overlay (aks-terraform ``network_plugin_mode = "none"``) every pod keeps an address of its
-zone's node subnet up to the hub firewall, so a denied flow's source address names a pod. The firewall's log is read
-where the environment keeps it (``firewall.log`` of the environment in ``platform.yaml``):
+Every pod keeps an address of its zone's pod subnet up to the hub firewall (Azure CNI Pod Subnet), so a denied flow's
+source address names a pod. The firewall's log is read where the environment keeps it (``firewall.log`` of the
+environment in ``platform.yaml``):
 
 - ``log_analytics``: Azure Firewall's resource-specific tables (``AZFWApplicationRule``, ``AZFWNetworkRule``) in the
   firewall's workspace - or labfw's ``LabfwFirewallLog_CL`` with the same columns (``firewall.table``), which the

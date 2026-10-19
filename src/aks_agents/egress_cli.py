@@ -141,9 +141,6 @@ def cmd_propose(args: argparse.Namespace, settings: Settings) -> int:
                 argv.append("-A")
             items[kind] = json.loads(execute(ctx, argv, timeout=120)).get("items", [])
         for m in map_addresses(ips, items["pods"], items["nodes"], items["namespaces"]):
-            if m.get("kind") == "node" and m.get("zone"):
-                # Overlay: the zone node's address stands for its application pods (design D61)
-                m["candidates"] = egress.node_candidates(m["node"], m["zone"], items["pods"], items["namespaces"])
             m["cluster"] = cluster
             mapping[m["ip"]] = m
     flows = egress.attribute(rows, mapping, state, at)

@@ -453,64 +453,6 @@ def _cpu(value: Any) -> float | None:
         return None
 
 
-def check_nap_node_pools(ctx: Context) -> list[Finding]:
-    """NAP ``NodePool`` limits per zone (on-demand + spot), spot share and VM size requirements."""
-    limits = ctx.config.limits
-    findings: list[Finding] = []
-    changed = {m.key for m in ctx.plan.effective_manifests if m.kind == "NodePool" and m.after}
-    if not changed:
-        return findings
-    # Group every NodePool after the change by environment, cluster and zone label.
-    zones: dict[tuple[str, str, str], dict[str, float]] = {}
-    for m in ctx.plan.effective_manifests:
-        if m.kind != "NodePool" or not m.after:
-            continue
-        spec = m.after.get("spec") or {}
-        labels = ((spec.get("template") or {}).get("metadata") or {}).get("labels") or {}
-        zone = labels.get("platform/zone") or m.name.removesuffix("spot")
-        requirements = ((spec.get("template") or {}).get("spec") or {}).get("requirements") or []
-        spot = any(
-            r.get("key") == "karpenter.sh/capacity-type" and r.get("values") == ["spot"] for r in requirements
-        ) or m.name.endswith("spot")
-        cpu = _cpu((spec.get("limits") or {}).get("cpu"))
-        if cpu is not None:
-            bucket = zones.setdefault((m.environment, m.cluster, zone), {"spot": 0.0, "total": 0.0})
-            bucket["total"] += cpu
-            if spot:
-                bucket["spot"] += cpu
-        allowed = limits.env(m.environment, "nodePools.allowedVmSizes") or []
-        for r in requirements:
-            if r.get("key") in ("node.kubernetes.io/instance-type", "karpenter.azure.com/sku-name") and allowed:
-                bad = [v for v in r.get("values") or [] if v not in allowed]
-                if bad:
-                    findings.append(
-                        Finding("vm-size", f"NodePool {m.name}: VM sizes {bad} not allowed", m.key, violation=True)
-                    )
-    for (env, cluster, zone), bucket in sorted(zones.items()):
-        subject = f"{env}/{cluster}/{zone}"
-        soft = limits.env(env, "nodePools.maxCpuPerZone.soft")
-        hard = limits.env(env, "nodePools.maxCpuPerZone.hard")
-        if hard is not None and bucket["total"] > hard:
-            findings.append(
-                Finding("zone-cpu", f"{bucket['total']:g} CPU over the hard limit {hard}", subject, violation=True)
-            )
-        elif soft is not None and bucket["total"] > soft:
-            findings.append(
-                Finding("zone-cpu", f"{bucket['total']:g} CPU over the soft limit {soft}", subject, Tier.MEDIUM)
-            )
-        max_spot = limits.env(env, "nodePools.maxSpotShare")
-        if max_spot is not None and bucket["total"] and bucket["spot"] / bucket["total"] > max_spot:
-            findings.append(
-                Finding(
-                    "spot-share",
-                    f"spot share {bucket['spot'] / bucket['total']:.0%} over {max_spot:.0%}",
-                    subject,
-                    violation=True,
-                )
-            )
-    return findings
-
-
 MEMORY_UNITS = {
     "Ki": 2**10, "Mi": 2**20, "Gi": 2**30, "Ti": 2**40,
     "k": 10**3, "K": 10**3, "M": 10**6, "G": 10**9, "T": 10**12,
@@ -760,7 +702,6 @@ def evaluate(plan: PlanSet, config: GateConfig, agent: str | None) -> list[Findi
             findings += found
         if not explained:
             findings.append(Finding("default-manifest", f"{mc.action} {mc.kind}", mc.key, tiers.default_manifest))
-    findings += check_nap_node_pools(ctx)
 
     has_effect = bool(plan.effective_resources or plan.effective_manifests)
     for path in plan.changed_files:

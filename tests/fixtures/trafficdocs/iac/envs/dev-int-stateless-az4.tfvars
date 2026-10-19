@@ -1,4 +1,4 @@
-name     = "aks-dev-int-stateless-az2"
+name     = "aks-dev-int-stateless-az4"
 exposure = "int"
 advanced_networking = null
 managed_namespaces = {
