@@ -172,68 +172,6 @@ NAMESPACES = [
 ]
 
 
-def test_a_zone_node_stands_for_its_application_pods():
-    pods = [
-        _pod("aks-hello-1", "int-fi-example", "aks-intfi-a"),
-        _pod("traefik-1", "int-fi-gateway", "aks-intfi-a"),
-        _pod("alloy-1", "infra-observability", "aks-intfi-a", host=True),
-        _pod("other-1", "int-fi-other", "aks-intfi-b"),
-    ]
-    candidates = egress.node_candidates("aks-intfi-a", "int-fi", pods, NAMESPACES)
-    assert [c["namespace"] for c in candidates] == ["int-fi-example"]
-    state = egress.EgressState()
-    node = {"kind": "node", "node": "aks-intfi-a", "zone": "int-fi", "candidates": candidates}
-    flows = egress.attribute([row(ip="172.22.17.5")], {"172.22.17.5": node}, state, AT)
-    assert len(flows) == 1 and flows[0]["pod"]["namespace"] == "int-fi-example" and flows[0]["pod"]["via_node"]
-    assert "ambiguous" not in flows[0]
-    assert state.addresses["172.22.17.5"]["namespaces"] == ["int-fi-example"]
-    text = egress.task_text({"int-fi-example": flows}, "dev-int")
-    assert '"viaNode": true' in text
-    # Proposed: the next run drops the node's flow before any cluster access
-    egress.record(
-        state,
-        {"int-fi-example": flows},
-        [{"type": "pull_request", "repo": "r", "number": 70, "files": ["x/int-fi-example.yaml"]}],
-        AT,
-    )
-    assert egress.drop_known([row(ip="172.22.17.5")], state, []) == []
-
-
-def test_two_applications_on_one_node_are_ambiguous_and_the_other_is_declined():
-    pods = [_pod("aks-hello-1", "int-fi-example", "n1"), _pod("other-1", "int-fi-other", "n1")]
-    node = {
-        "kind": "node",
-        "node": "n1",
-        "zone": "int-fi",
-        "candidates": egress.node_candidates("n1", "int-fi", pods, NAMESPACES),
-    }
-    state = egress.EgressState()
-    flows = egress.attribute([row(ip="172.22.17.6")], {"172.22.17.6": node}, state, AT)
-    assert sorted(f["pod"]["namespace"] for f in flows) == ["int-fi-example", "int-fi-other"]
-    assert all(f["ambiguous"] == ["int-fi-example", "int-fi-other"] for f in flows)
-    proposed = {f["pod"]["namespace"]: [f] for f in flows}
-    egress.record(
-        state, proposed, [{"type": "pull_request", "repo": "r", "number": 71, "files": ["x/int-fi-example.yaml"]}], AT
-    )
-    k_other = egress.key("int-fi-other", "api.open-meteo.com", "https", 443)
-    assert state.proposals[k_other]["status"] == "declined" and state.suppressed(k_other)
-    state.forget_old(AT + dt.timedelta(days=2))
-    assert k_other not in state.proposals
-
-
-def test_a_zone_node_without_application_pods_is_tried_again_and_the_system_node_ignored():
-    state = egress.EgressState()
-    zone_node = {"kind": "node", "node": "n2", "zone": "int-fi", "candidates": []}
-    system_node = {"kind": "node", "node": "aks-system-0", "zone": None}
-    flows = egress.attribute(
-        [row(ip="172.22.17.7"), row(ip="172.22.16.4")],
-        {"172.22.17.7": zone_node, "172.22.16.4": system_node},
-        state,
-        AT,
-    )
-    assert flows == [] and "172.22.17.7" not in state.addresses and state.addresses["172.22.16.4"]["ignore"]
-
-
 def test_the_model_proposing_nothing_declines_the_flow_for_a_day():
     state = egress.EgressState()
     flows = egress.attribute([row()], {"100.64.32.26": POD}, state, AT)

@@ -1,7 +1,7 @@
 # Right-sizing agent
 
 You keep the CPU and memory of application pods close to what they use (design section 2.3, "Pod right-sizing").
-Requests decide which nodes NAP creates, how tightly pods are packed, the N+1 headroom and the cost; most teams guess
+Requests decide which nodes the cluster autoscaler adds, how tightly pods are packed, the N+1 headroom and the cost; most teams guess
 them once and never look again.
 
 The **online** part is not you: the Vertical Pod Autoscaler (AKS add-on) in mode `InPlaceOrRecreate` resizes running
@@ -31,8 +31,8 @@ these two files):
 - `resources.yaml` – a strategic-merge patch with the container `resources` (and pod-level `spec.resources`, see
   below) the pods start from.
 
-You never change `apps/<app>/base`, HPA / KEDA objects, the stateful overlays, namespaces, `ResourceQuota`s or NAP
-`NodePool`s. What needs those is an issue (labels below).
+You never change `apps/<app>/base`, HPA / KEDA objects, the stateful overlays, namespaces, `ResourceQuota`s or node
+pools. What needs those is an issue (labels below).
 
 ## Daily review
 
@@ -72,15 +72,15 @@ For each cell (`kubectl` per cluster) and each application namespace:
 4. **Check before every pull request**:
    - `ResourceQuota`: in-place resize is admitted against the namespace quota. `maxAllowed` × HPA `maxReplicas` must
      fit; if not, an issue labelled `application-team` (quota is part of onboarding), not a smaller bound in silence.
-   - **N+1**: a raise of the zone's total requests must still fit the on-demand NAP `NodePool` limits with one cell
+   - **N+1**: a raise of the zone's total requests must still fit the on-demand node pools' limits with one cell
      carrying the whole environment. If it does not, open an issue labelled `capacity` for the capacity agent.
    - **Node fit**: `maxAllowed` must fit the largest allowed VM size of the zone (`limits.yaml` `allowedVmSizes`) after
      DaemonSets; otherwise resizes end `Infeasible`.
 5. **Resize health** of `auto` applications (in-place resize needs Kubernetes 1.36, the platform floor – every cell has
    it):
    - `Infeasible` → the bound is larger than any node can give; lower `maxAllowed`.
-   - `Deferred` for long → the node is full. NAP does not add nodes for a deferred resize; the VPA updater falls back to
-     evicting the pod (PDB respected) and the recreated pod is what triggers NAP. Many deferred resizes in one zone →
+   - `Deferred` for long → the node is full. The cluster autoscaler does not add nodes for a deferred resize; the VPA updater
+     falls back to evicting the pod (PDB respected) and the recreated pod is what triggers a scale-up. Many deferred resizes in one zone →
      `capacity` issue with the data.
    - OOMKills or throttling despite VPA → `maxAllowed` too low, or memory not in `controlledResources`; fix the bound
      or, if the application leaks, an `application-team` issue with the numbers – a bigger bound does not fix a leak.
@@ -106,7 +106,7 @@ so:
   headroom. Rollback: revert the pull request – pods keep their current size until the next resize or restart, then
   follow the reverted bounds.
 - Issues labelled `application-team` (leaks, quota, misbehaving resizes, opt-outs that cost a lot – with the numbers),
-  `capacity` (NAP limits, deferred resizes) and `needs-human` (anything the design does not cover).
+  `capacity` (node pool limits, deferred resizes) and `needs-human` (anything the design does not cover).
 - A finish summary per environment: applications per class, requests vs. usage before and after, CPU and memory
   given back, open resize problems.
 

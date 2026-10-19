@@ -66,7 +66,7 @@ merged and by whom.
 | Onboarding | onboarding request issue | pull requests creating namespace (tier low), identity (tier high), overlays |
 | Reviewer | every pull request | review and the required `reviewer-agent` check – never an approval |
 | Documentation (section 5.3) | merged firewall rules and application changes, weekly schedule | pull requests with the traffic flow documentation: a Mermaid picture and a page per application (who reaches it, what it reaches through the hub firewall, who asked for each rule) and per isolation zone (the union the firewall opens), generated from Git by `aks-agent docs traffic` – the model only explains the findings |
-| Egress (D59) | hourly schedule, firewall deny alerts | pull requests to the landing zone's per-application firewall rules (`firewall-applications/<env>-<exposure>/<namespace>.yaml`), from the flows the hub firewall denied and the pods behind their addresses |
+| Egress (D61) | hourly schedule, firewall deny alerts | pull requests to the landing zone's per-application firewall rules (`firewall-applications/<env>-<exposure>/<namespace>.yaml`), from the flows the hub firewall denied and the pods behind their addresses |
 
 What keeps them inside their role, independently of the model:
 
@@ -110,7 +110,7 @@ Foundry (`model.provider: foundry` in `platform.yaml`, Entra ID token of the run
 provider and region are still an open question of the design. `AKS_AGENT_MODE=prototype` (build tenant, phases 1–2
 only) lets the tools write directly and logs it.
 
-## The egress agent in the lab (D59)
+## The egress agent in the lab (D61)
 
 `aks-terraform`'s **Egress agent** workflow runs [`egress-agent`](agents/egress-agent.yaml) against the build tenant
 with [`config/onek8s-dev.yaml`](config/onek8s-dev.yaml): Claude Sonnet 5.5 on Microsoft Foundry (Entra ID, the dev
@@ -128,8 +128,7 @@ after the last processed ingestion time (the checkpoint), but never more than 3 
 a first run or one after a long pause starts there; only denials, unless `--include-allowed` (or
 `firewall.includeAllowed`) adds the allowed lines for a firewall that still allows by default; no bare IP destinations;
 sources already known to be nodes or platform pods, or to belong to a namespace with a pending proposal, are dropped
-before any cluster access; in an overlay cell (design D61) a zone node's address stands for the application pods on the node
-(one candidate: its namespace; several: the model picks by configuration, the others are declined for a day); then pods are attributed and every
+before any cluster access; then pods are attributed and every
 (namespace, destination) already in the firewall file, in an open agent pull request, pending, merged in the last
 hour or rejected in the last week is dropped. Nothing left: no VPN, no cluster access, no model call. What is left
 goes into the model's task, so it neither re-queries the log nor re-maps the pods.

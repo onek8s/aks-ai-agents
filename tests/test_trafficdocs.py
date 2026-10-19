@@ -34,13 +34,13 @@ def by_name(app: t.Application) -> dict[str, t.Destination]:
 
 def test_cells_from_the_tfvars():
     cells = t.read_cells(FIXTURES / "iac", "dev")
-    assert cells["aks-dev-int-stateless-az3"].overlay is False  # network_plugin_mode none
     assert cells["aks-dev-int-stateless-az3"].acns is True and cells["aks-dev-int-stateless-az3"].enabled
-    assert cells["aks-dev-int-stateless-az2"].overlay is True and cells["aks-dev-int-stateless-az2"].acns is False
+    assert cells["aks-dev-int-stateless-az4"].acns is False
     assert cells["aks-dev-int-stateful"].enabled is False  # not in the shared cells: never built
     assert cells["aks-dev-ext-stateless-az1"].exposure == "ext"
     assert (
-        "model C" in cells["aks-dev-int-stateless-az3"].model and "model A" in cells["aks-dev-int-stateless-az2"].model
+        "Cilium FQDN" in cells["aks-dev-int-stateless-az3"].model
+        and "Cilium" not in cells["aks-dev-int-stateless-az4"].model
     )
 
 
@@ -165,7 +165,7 @@ def test_pages_and_pictures():
     }
     page = result.files["dev-int/int-se-example.md"]
     assert "```mermaid\nflowchart LR" in page
-    assert "node subnet: the firewall sees the pod's own address" in page
+    assert "pod subnet + Cilium FQDN policies: the firewall sees the pod's own address" in page
     assert 'fw -->|"allowed"| d_api_open_meteo_com' in page
     assert 'fw -->|"allowed, not in the configuration"| d_stats_grafana_org' in page
     assert 'fw -.->|"denied: no rule"| d_license_example_org' in page

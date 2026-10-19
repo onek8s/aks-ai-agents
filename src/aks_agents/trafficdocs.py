@@ -100,17 +100,14 @@ class Route:
 class Cell:
     name: str
     exposure: str
-    overlay: bool  # False: node subnet, pods keep their addresses up to the firewall
     acns: bool
     enabled: bool = True
 
     @property
     def model(self) -> str:
-        if not self.overlay:
-            return "node subnet: the firewall sees the pod's own address (design 22, model C)"
         if self.acns:
-            return "overlay + Cilium FQDN policies: the firewall sees the zone's node addresses (model B)"
-        return "overlay + hub firewall only: the firewall sees the zone's node addresses (model A)"
+            return "pod subnet + Cilium FQDN policies: the firewall sees the pod's own address"
+        return "pod subnet + hub firewall: the firewall sees the pod's own address"
 
 
 @dataclass
@@ -318,8 +315,6 @@ def read_cells(iac: Path, env: str) -> dict[str, Cell]:
         cells[name.group(1)] = Cell(
             name=name.group(1),
             exposure=_string(text, "exposure") or "int",
-            overlay=not re.search(r'network_plugin_mode\s*=\s*"none"', text)
-            and not re.search(r'pod_network\s*=\s*"subnet"', settings),
             acns=not re.search(r"(?m)^advanced_networking\s*=\s*null", text),
             enabled=enabled,
         )

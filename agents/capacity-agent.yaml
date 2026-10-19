@@ -1,5 +1,5 @@
 name: capacity-agent
-description: NAP limits, spot share, arch fit, node pool sizes, quota headroom, idle resources, cost
+description: Zone node pool limits, spot share, arch fit, node pool sizes, quota headroom, idle resources, cost
 instructions: prompts/capacity-agent.md
 triggers: [schedule-weekly, quota-alert, budget-alert]
 model: { effort: high, maxTurns: 80 }
@@ -14,7 +14,6 @@ tools:
   - repo_write:
       paths:
         iac: ["environments/*/capacity.auto.tfvars"]
-        fleet: ["infrastructure/stateless/*/nodepool*.yaml", "infrastructure/stateless/**/nodepool*.yaml"]
   - create_pull_request: { repositories: [iac, fleet] }
   - search_issues: { repositories: [iac, fleet] }
   - create_issue: { repositories: [iac, fleet], labels: [capacity, cost, right-sizing, application-team] }

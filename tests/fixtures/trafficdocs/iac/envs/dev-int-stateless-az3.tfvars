@@ -5,7 +5,7 @@ advanced_networking = {
   observability = false
 }
 network_profile = {
-  network_plugin_mode = "none" # node subnet
+  outbound_type = "userDefinedRouting"
 }
 managed_namespaces = {
   int-se-example = {
