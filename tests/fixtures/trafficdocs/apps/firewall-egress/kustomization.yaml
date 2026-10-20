@@ -1,0 +1,30 @@
+# aks-hello fetches a weather forecast from api.open-meteo.com.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: int-se-example
+resources:
+  - ../apps/aks-hello
+components:
+  - ../lab/scale
+images:
+  - name: acronek8sdev.azurecr.io/aks-hello
+    newTag: 0.5.0
+patches:
+  - target:
+      kind: Deployment
+      name: aks-hello
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: WEATHER_URL
+          value: https://api.open-meteo.com/v1/forecast?latitude=59.33&longitude=18.07
+  - target:
+      kind: VerticalPodAutoscaler
+      name: aks-hello
+    patch: |-
+      $patch: delete
+      apiVersion: autoscaling.k8s.io/v1
+      kind: VerticalPodAutoscaler
+      metadata:
+        name: aks-hello

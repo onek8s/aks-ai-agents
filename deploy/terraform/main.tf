@@ -1,4 +1,4 @@
-# Identities, roles and jobs of the AI agents (design section 15, "Identities and access rights").
+# Identities, roles and jobs of the AI agents (design section 6.1, "Identities and access rights").
 # This module belongs to the guardrails repository: only its pipeline may create role assignments for agent
 # identities, and every change needs two human approvals.
 
@@ -33,7 +33,7 @@ locals {
       p.agent == "security-agent" ? {
         "${key}-security" = { pair = key, scope = "/subscriptions/${var.environments[p.env].subscription_id}", role = "Security Reader" }
       } : {},
-      # Build tenant, phases 1-2 only (section 17): full permissions, every action logged.
+      # Build tenant, phases 1-2 only (section 7.1): full permissions, every action logged.
       var.mode == "prototype" ? {
         "${key}-owner" = { pair = key, scope = "/subscriptions/${var.environments[p.env].subscription_id}", role = "Owner" }
       } : {},

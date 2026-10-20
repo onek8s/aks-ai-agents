@@ -38,8 +38,8 @@ environments:
     subscription: sub-aks-dev
     region: germanywestcentral
     resourceGroup: rg-aks-dev
-    clusters: [aks-dev-int-stateless-az3, aks-dev-int-stateless-az2]
-    # The hub firewall (design D53, D59): labfw's denied connections in its own workspace log-labfw-germanywestcentral
+    clusters: [aks-dev-int-stateless-az3]
+    # The hub firewall (design D53, D61): labfw's denied connections in its own workspace log-labfw-germanywestcentral
     # (table LabfwFirewallLog_CL, AZFW columns; azure-landing-zone modules/labfw logs.tf), read with Reader. The
     # workflow passes the workspace ID as AKS_AGENT_FIREWALL_WORKSPACE. An Azure Firewall: no table (AZFW tables).
     firewall:
@@ -49,9 +49,19 @@ environments:
       # application's egress becomes its own rule first. Off here: labfw denies by default and logs denials only.
       includeAllowed: false
       spoke: dev-int                # firewall-applications/<spoke>/ of azure-landing-zone
-      sourcePrefixes: [100.64.0.0/10, 172.22.0.0/16]
+      sourcePrefixes: [100.64.0.0/10]
       cells:
         aks-dev-int-stateless-az3: [100.64.0.0/16]
-        aks-dev-int-stateless-az2: [172.22.16.0/20]
+
+# The documentation agent's pages (design section 5.3): docs/traffic-flows/<spoke>/ of the landing zone, next to the
+# rule files they document.
+documentation:
+  repository: firewall
+  path: docs/traffic-flows
+  # The lab examples of the design site (`aks-agent docs lab`, aks-terraform's Lab examples workflow, by hand):
+  # examples/lab/ of the design repository - outside the requirements, the design and the PDFs.
+  lab:
+    repository: design
+    path: examples/lab
 
 platformNamespaces: [kube-system, flux-system, gatekeeper-system, external-dns, external-secrets, infra-observability]

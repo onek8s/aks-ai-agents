@@ -1,5 +1,5 @@
 # Version pipeline (Azure DevOps): computes the due upgrade steps of the update policy every morning and starts the
-# upgrade agent for each environment that has some (design section 12). Deterministic – no LLM decides what is due.
+# upgrade agent for each environment that has some (design section 3.5). Deterministic – no LLM decides what is due.
 trigger: none
 pr: none
 schedules:

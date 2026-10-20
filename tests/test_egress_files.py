@@ -178,7 +178,7 @@ PR = dict(
     title="Egress: int-se-example -> stats.grafana.org",
     intent="denied flows",
     evidence="5 denied",
-    design_section="D59, section 16 egress",
+    design_section="D61, section 5.1 egress",
     rollback="Revert the pull request.",
 )
 

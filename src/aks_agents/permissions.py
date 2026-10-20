@@ -1,4 +1,4 @@
-"""Derive least-privilege permissions from logged agent runs (design section 17, end of phase 2).
+"""Derive least-privilege permissions from logged agent runs (design section 7.1, end of phase 2).
 
 During prototyping the agents run with full permissions and every action is logged. This report turns the logs into
 what each agent actually needed: the tools it used, the Azure and Kubernetes operations it ran (read vs. write), the

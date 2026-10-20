@@ -1,5 +1,5 @@
 # IaC repository: .github/workflows/version-pipeline.yml (GitHub Actions). Computes the due upgrade steps of the
-# update policy every morning and starts the upgrade agent per environment (design section 12).
+# update policy every morning and starts the upgrade agent per environment (design section 3.5).
 name: version-pipeline
 
 on:

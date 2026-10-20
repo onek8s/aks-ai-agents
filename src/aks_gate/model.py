@@ -8,7 +8,7 @@ from typing import Any
 
 
 class Tier(enum.IntEnum):
-    """Risk tiers of design section 15, ordered so that ``max()`` gives the strictest."""
+    """Risk tiers of design section 6.1, ordered so that ``max()`` gives the strictest."""
 
     LOW = 1
     MEDIUM = 2

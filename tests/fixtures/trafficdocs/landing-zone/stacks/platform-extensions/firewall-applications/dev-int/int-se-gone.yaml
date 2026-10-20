@@ -1,0 +1,6 @@
+zone: int-se
+contact: https://example.org
+egress:
+  - fqdn: old.example.org
+    reason: "an application that was removed"
+    evidence: "none"

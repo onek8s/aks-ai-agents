@@ -1,4 +1,4 @@
-# Risk tier rules of the merge gate (design section 15). The tier of a pull request is the strictest tier of any
+# Risk tier rules of the merge gate (design section 6.1). The tier of a pull request is the strictest tier of any
 # rule that matches what its plan does. Semantic rules (versions, policy effects, image promotion, limits,
 # VerticalPodAutoscaler bounds and resource-only workload changes) are implemented in aks_gate.rules and documented
 # there.
@@ -155,7 +155,7 @@ agentsAzureDevOps:
   reviewer-agent: id-agent-reviewer-agent-*
 
 pullRequest:
-  # Sections every agent pull request body must have (design section 15).
+  # Sections every agent pull request body must have (design section 6.1).
   requiredSections: [Intent, Evidence, Design section, Rollback]
   requiredTrailers: [Agent, Agent-Run]
   incidentFixLabel: incident-fix  # counts only when a human added it

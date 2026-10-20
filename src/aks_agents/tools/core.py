@@ -8,6 +8,9 @@ from typing import Any
 
 from .base import ToolContext, ToolError, tool
 
+# The design repository's folders: the requirements (human-owned) and the design that meets them.
+DESIGN_FOLDERS = ("requirements", "design")
+
 
 def _design_root(ctx: ToolContext) -> Path:
     root = ctx.settings.design_dir
@@ -25,21 +28,24 @@ def safe_join(root: Path, relative: str) -> Path:
 
 @tool(
     "design_list",
-    "List the sections of the platform design documents (the specification every change must follow).",
+    "List the requirements and the sections of the platform design documents (the specification every change must "
+    "follow).",
     {},
 )
 def design_list(ctx: ToolContext, _: dict[str, Any]) -> str:
     root = _design_root(ctx)
     lines = []
-    for path in sorted((root / "docs").glob("*.md")):
-        first = path.read_text().splitlines()[0].lstrip("# ").strip() if path.stat().st_size else ""
-        lines.append(f"docs/{path.name}: {first}")
+    for folder in DESIGN_FOLDERS:
+        for path in sorted((root / folder).glob("*.md")):
+            first = path.read_text().splitlines()[0].lstrip("# ").strip() if path.stat().st_size else ""
+            lines.append(f"{folder}/{path.name}: {first}")
     return "\n".join(lines)
 
 
 @tool(
     "design_read",
-    "Read one design document, e.g. docs/15-ai-driven-day-2-operations.md. Cite the section a change follows.",
+    "Read one design document, e.g. design/6.1-ai-driven-day-2-operations.md or requirements/0.2-requirements.md. "
+    "Cite the section a change follows.",
     {"path": {"type": "string", "description": "Path relative to the design repository root"}},
 )
 def design_read(ctx: ToolContext, args: dict[str, Any]) -> str:

@@ -25,6 +25,9 @@ from ..platforms import GitPlatform, PlatformError, create
 from .base import ToolContext, ToolError, tool
 from .core import safe_join
 
+# A design citation: a page of the design repository's design/ or requirements/ folder, or a section number.
+DESIGN_CITATION = re.compile(r"((?:design|requirements)/\d+(?:\.\d+)?-[\w-]+\.md|[Ss]ection \d+(?:\.\d+)?)")
+
 REPO_PROPERTY = {"type": "string", "description": "Repository key, e.g. iac, fleet or design"}
 
 # Checks of a changed file before create_pull_request commits it: (glob, check(path, old text or None, new text or
@@ -290,7 +293,7 @@ def _body(args: dict[str, Any], agent: str, run_id: str) -> str:
         "evidence": {"type": "string", "description": "Queries, metrics and links that show the change is needed"},
         "design_section": {
             "type": "string",
-            "description": "e.g. docs/12-zero-downtime-cluster-upgrades.md#update-policy",
+            "description": "e.g. design/3.5-zero-downtime-cluster-upgrades.md#update-policy",
         },
         "rollback": {"type": "string", "description": "How to undo it, concretely"},
         "draft": {"type": "boolean"},
@@ -322,8 +325,8 @@ def create_pull_request(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any
                 check(path, old, new)
     for change_check in CHANGE_CHECKS:
         change_check(changes)
-    if not re.search(r"(docs/\d{2}-[\w-]+\.md|[Ss]ection \d+)", args["design_section"]):
-        raise ToolError("design_section must cite a design document, e.g. docs/15-ai-driven-day-2-operations.md")
+    if not DESIGN_CITATION.search(args["design_section"]):
+        raise ToolError("design_section must cite a design document, e.g. design/6.1-ai-driven-day-2-operations.md")
     repo = ctx.platform.repository(key)
     agent, run_id = ctx.agent.name, ctx.run_id
     branch = f"agent/{agent}/{_slug(args['title'])}-{run_id.rsplit('-', 1)[-1]}"

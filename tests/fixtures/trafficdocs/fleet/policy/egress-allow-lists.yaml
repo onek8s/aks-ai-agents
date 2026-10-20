@@ -1,0 +1,8 @@
+zones:
+  int-fi:
+    names: [login.microsoftonline.com]
+    patterns: []
+  int-se:
+    names:
+      - login.microsoftonline.com
+    patterns: ["*.blob.example.net"]

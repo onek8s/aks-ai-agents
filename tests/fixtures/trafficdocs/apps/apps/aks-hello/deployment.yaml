@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aks-hello
+spec:
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        platform/arch: amd64
+        platform/capacity: spot
+    spec:
+      containers:
+        - name: aks-hello
+          image: acronek8sdev.azurecr.io/aks-hello:0.3.0
+          env:
+            - name: CLUSTER_NAME
+              value: "${cluster_name}"
+            - name: LICENSE_URL
+              value: https://license.example.org/v1/check
+            - name: TOKEN_URL
+              value: https://login.microsoftonline.com/tenant/oauth2/v2.0/token
+            - name: INTERNAL
+              value: http://search.int-se-search.svc.cluster.local/q

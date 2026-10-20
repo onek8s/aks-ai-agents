@@ -1,4 +1,4 @@
-# Numbers the merge gate checks (design section 15, "Risk tiers"). Owned by humans: every change to this file
+# Numbers the merge gate checks (design section 6.1, "Risk tiers"). Owned by humans: every change to this file
 # needs two approvals (platform + security). Agents can read it but never change it.
 
 agents:
@@ -78,7 +78,7 @@ roleAssignments:
     - Monitoring Metrics Publisher
     # platform identities (cluster modules)
     - AcrPull
-    - Key Vault Crypto Service Encryption User   # disk encryption sets, KMS (section 18)
+    - Key Vault Crypto Service Encryption User   # disk encryption sets, KMS (section 4.2)
     - Network Contributor                        # cluster identity on its own subnets
     - Managed Identity Operator
     # read-only

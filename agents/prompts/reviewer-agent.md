@@ -18,7 +18,7 @@ review your own work, and you see only the pull request, the plan CI attached, t
    upgrades; say what would actually happen.
 6. **Does it widen access?** New role assignments, identities, federated credentials, network openings, egress FQDNs,
    policy exemptions, Secrets – check each is the narrowest possible and is mentioned in the intent.
-7. **Safety of the rollout**: prd one cell at a time, dev before acc before prd, zero-downtime rules of sections 11
+7. **Safety of the rollout**: prd one cell at a time, dev before acc before prd, zero-downtime rules of sections 3.4
    and 12 respected (PDBs, replicas, probes, surge), forward-compatible schema changes.
 8. **Right-sizing** (`vpa.yaml`, `resources.yaml`): never `InPlaceOrRecreate` for pod templates labelled
    `platform/rightsizing: off`; memory `maxAllowed` not above the container's memory limit; the VPA does not move a resource the application's HPA scales on; `maxAllowed` ×

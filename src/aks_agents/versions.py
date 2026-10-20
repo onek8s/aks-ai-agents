@@ -1,9 +1,9 @@
-"""The version pipeline of the update policy (design section 12): deterministic target versions per cluster.
+"""The version pipeline of the update policy (design section 3.5): deterministic target versions per cluster.
 
 The upgrade agent never decides *when* a version is due – this module does, from the AKS release catalog and the
 clusters' current versions; the agent turns each due step into a pull request with a compatibility report.
 
-Rules implemented (``docs/12-zero-downtime-cluster-upgrades.md#update-policy``):
+Rules implemented (``design/3.5-zero-downtime-cluster-upgrades.md#update-policy``):
 
 * fast speed (``sl-az1``): Kubernetes minor N-1 (second latest GA minor); a release reaches dev 1 week after AKS
   released it, acc 1 week after dev, prd 1 week after acc;

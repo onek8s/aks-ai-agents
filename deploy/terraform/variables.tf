@@ -1,5 +1,5 @@
 variable "management" {
-  description = "Management subscription resources the agents run in (design section 15: management VNet)."
+  description = "Management subscription resources the agents run in (design section 6.1: management VNet)."
   type = object({
     subscription_id              = string
     resource_group_name          = string

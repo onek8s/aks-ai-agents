@@ -1,7 +1,7 @@
 # Guardrails repository content
 
 These files are the content of the **guardrails repository** of design section 15. They are kept here next to the
-gate code while the agents are built (phase 2 of section 17) and published to their own repository, where every
+gate code while the agents are built (phase 2 of section 7.1) and published to their own repository, where every
 change needs two human approvals (platform + security) and agents have read access only.
 
 | File | Content |

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Version pipeline of the update policy (design section 12):
+# Version pipeline of the update policy (design section 3.5):
 #   1. read every cluster's current Kubernetes version and node image (Resource Graph);
 #   2. update the release catalog with versions first seen in the region (az aks get-versions);
 #   3. compute the due steps (aks-agent versions) – deterministic, no LLM;

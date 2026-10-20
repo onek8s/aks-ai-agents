@@ -1,0 +1,15 @@
+zone: int-se
+contact: https://github.com/onek8s/aks-fluxcd-example/issues
+egress:
+  - fqdn: api.open-meteo.com
+    port: 443
+    protocol: https
+    reason: "aks-hello fetches a weather forecast (WEATHER_URL)"
+    evidence: "91 denied connections from pods aks-hello in namespace int-se-example"
+  - fqdn: stats.grafana.org
+    port: 443
+    protocol: https
+    reason: "metrics to Grafana cloud"
+    evidence: |
+      5 denied flows
+      from pod aks-hello-66966c9985-5l74n

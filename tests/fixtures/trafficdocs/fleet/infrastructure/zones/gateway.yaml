@@ -1,0 +1,12 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: ${zone}
+  namespace: ${zone}-gateway
+spec:
+  gatewayClassName: ${gateway_class_name}
+  listeners:
+    - name: https
+      protocol: HTTPS
+      port: 443
+      hostname: "*.${zone_domain}"

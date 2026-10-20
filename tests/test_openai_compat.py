@@ -119,8 +119,8 @@ def test_the_runtime_loop_runs_on_the_openai_client(tmp_path):
     model = ModelClient(platform, client=AzureOpenAIClient("r", lambda: "t", post=lambda u, h, b: next(answers)))
     model.provider = "azure-openai"
     design = tmp_path / "design"
-    (design / "docs").mkdir(parents=True)
-    (design / "docs" / "01-overview.md").write_text("# Overview\n")
+    (design / "design").mkdir(parents=True)
+    (design / "design" / "01-overview.md").write_text("# Overview\n")
     settings = Settings(environment="dev", runs_dir=tmp_path / "runs", design_dir=design, workspace=tmp_path / "ws")
     definition = AgentDefinition("egress-agent", "", "instructions", [ToolGrant("design_list")])
     result = AgentRunner(definition, settings, platform, model=model).run("task")
@@ -155,8 +155,8 @@ def test_a_repeated_identical_call_is_refused(tmp_path):
     model = ModelClient(platform, client=AzureOpenAIClient("r", lambda: "t", post=lambda u, h, b: next(answers)))
     model.provider = "azure-openai"
     design = tmp_path / "design"
-    (design / "docs").mkdir(parents=True)
-    (design / "docs" / "01.md").write_text("# x\n")
+    (design / "design").mkdir(parents=True)
+    (design / "design" / "01.md").write_text("# x\n")
     settings = Settings(environment="dev", runs_dir=tmp_path / "runs", design_dir=design, workspace=tmp_path / "ws")
     runner = AgentRunner(
         AgentDefinition("egress-agent", "", "i", [ToolGrant("design_list")]), settings, platform, model=model

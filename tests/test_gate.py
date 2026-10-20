@@ -20,7 +20,7 @@ Patch upgrade per the update timetable (#12).
 Version pipeline run 4711.
 
 ## Design section
-docs/12-zero-downtime-cluster-upgrades.md#update-policy
+design/3.5-zero-downtime-cluster-upgrades.md#update-policy
 
 ## Rollback
 Revert this pull request.
@@ -134,6 +134,16 @@ def test_missing_structure_and_trailers_reject(config):
     d = decide(pr(body="fix", commits=[{"sha": "abc", "message": "fix"}]), patch_plan("dev"), config, TUESDAY)
     assert d.decision == REJECT
     assert any("Intent" in v for v in d.violations) and any("Agent-Run" in v for v in d.violations)
+
+
+def test_design_section_cites_the_design_or_the_requirements(config):
+    requirements = BODY.replace(
+        "design/3.5-zero-downtime-cluster-upgrades.md#update-policy", "requirements/0.2-requirements.md"
+    )
+    assert decide(pr(body=requirements), patch_plan("dev"), config, TUESDAY).decision != REJECT
+    old = BODY.replace("design/3.5-zero-downtime-cluster-upgrades.md#update-policy", "docs/3.5-zero-downtime.md")
+    d = decide(pr(body=old), patch_plan("dev"), config, TUESDAY)
+    assert d.decision == REJECT and any("Design section" in v for v in d.violations)
 
 
 def test_wrong_agent_trailer_and_branch(config):

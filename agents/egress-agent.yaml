@@ -1,5 +1,5 @@
 name: egress-agent
-description: Egress through the hub firewall (D59) – learns the applications' denied destinations and proposes their firewall rules
+description: Egress through the hub firewall (D61) – learns the applications' denied destinations and proposes their firewall rules
 instructions: prompts/egress-agent.md
 triggers: [schedule-hourly, firewall-deny-alert]
 model: { effort: high, maxTurns: 25 }

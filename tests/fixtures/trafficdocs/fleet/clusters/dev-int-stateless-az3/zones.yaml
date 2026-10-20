@@ -1,0 +1,19 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: zone-int-se
+  namespace: flux-system
+spec:
+  path: ./infrastructure/zones
+  postBuild:
+    substitute:
+      zone: int-se
+      zone_domain: int-se.dev.onek8s.lol
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: firewall-egress-int-se
+  namespace: flux-system
+spec:
+  path: ./infrastructure/zones/firewall-egress

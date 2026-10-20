@@ -1,6 +1,6 @@
 # Deploying the agents
 
-The agents run as **Container Apps jobs in the management VNet** (design section 15), one job per agent and
+The agents run as **Container Apps jobs in the management VNet** (design section 6.1), one job per agent and
 environment, each with its own user-assigned managed identity – and on GitHub its own GitHub App; on Azure DevOps the
 managed identity itself is the agent's Azure DevOps user. Their only egress is the model endpoint, the Git platform
 and the documentation allow-list, through the hub Firewall.
@@ -28,7 +28,7 @@ On GitHub, every identity can also read **its own** GitHub App key (secret-scope
 the management subscription – never the zone or platform vaults) and append runs to the immutable audit container.
 No identity gets a write role, a data-plane role on PaaS or ACR, or `listClusterAdminCredential`.
 
-With `mode = "prototype"` (build tenant, phases 1–2 of section 17 only) every identity also gets `Owner` on the
+With `mode = "prototype"` (build tenant, phases 1–2 of section 7.1 only) every identity also gets `Owner` on the
 environment subscription and `Azure Kubernetes Service RBAC Cluster Admin`, and the tools allow writes. Every action
 is logged; `aks-agent permissions` turns the logged runs into the least-privilege roles before phase 3.
 

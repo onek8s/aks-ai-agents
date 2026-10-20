@@ -1,6 +1,6 @@
 # Azure DevOps pipelines
 
-Azure DevOps counterparts of the GitHub workflows (design section 15 leaves the Git platform open). The gate and
+Azure DevOps counterparts of the GitHub workflows (design section 6.1 leaves the Git platform open). The gate and
 the agents behave the same; only the platform mechanisms differ.
 
 | File | Lives in | Purpose |

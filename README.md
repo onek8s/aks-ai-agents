@@ -3,13 +3,13 @@
 Implementation of the AI agents that run day 2 operations of [OneK8s](https://onek8s.github.io/) – one
 Kubernetes platform for every cloud, implemented first on AKS – described in
 [onek8s.github.io](https://github.com/onek8s/onek8s.github.io) –
-[section 15, AI-driven day 2 operations](https://github.com/onek8s/onek8s.github.io/blob/main/docs/15-ai-driven-day-2-operations.md),
+[section 6.1, AI-driven day 2 operations](https://github.com/onek8s/onek8s.github.io/blob/main/design/6.1-ai-driven-day-2-operations.md),
 plus the agent parts of
-[section 17, implementation project](https://github.com/onek8s/onek8s.github.io/blob/main/docs/17-implementation-project-and-acceptance-testing.md)
+[section 7.1, implementation project](https://github.com/onek8s/onek8s.github.io/blob/main/archive/7.1-implementation-project-and-acceptance-testing.md)
 and the version pipeline of
-[section 12](https://github.com/onek8s/onek8s.github.io/blob/main/docs/12-zero-downtime-cluster-upgrades.md#update-policy).
+[section 3.5](https://github.com/onek8s/onek8s.github.io/blob/main/design/3.5-zero-downtime-cluster-upgrades.md#update-policy).
 
-> Status: **work in progress**, built for the build tenant (phase 2 of section 17). Not yet run against a real
+> Status: **work in progress**, built for the build tenant (phase 2 of section 7.1). Not yet run against a real
 > environment.
 
 Agents may change every environment, prd included, but only the way a human platform engineer would: **with a pull
@@ -65,7 +65,8 @@ merged and by whom.
 | Security and compliance | daily schedule, Defender and Key Vault events | pull requests for platform findings, issues for application teams |
 | Onboarding | onboarding request issue | pull requests creating namespace (tier low), identity (tier high), overlays |
 | Reviewer | every pull request | review and the required `reviewer-agent` check – never an approval |
-| Egress (D59) | hourly schedule, firewall deny alerts | pull requests to the landing zone's per-application firewall rules (`firewall-applications/<env>-<exposure>/<namespace>.yaml`), from the flows the hub firewall denied and the pods behind their addresses |
+| Documentation (section 5.3) | merged firewall rules and application changes, weekly schedule | pull requests with the traffic flow documentation: a Mermaid picture and a page per application (who reaches it, what it reaches through the hub firewall, who asked for each rule) and per isolation zone (the union the firewall opens), generated from Git by `aks-agent docs traffic` – the model only explains the findings |
+| Egress (D61) | hourly schedule, firewall deny alerts | pull requests to the landing zone's per-application firewall rules (`firewall-applications/<env>-<exposure>/<namespace>.yaml`), from the flows the hub firewall denied and the pods behind their addresses |
 
 What keeps them inside their role, independently of the model:
 
@@ -95,7 +96,7 @@ AKS_AGENT_ENV=dev aks-agent run operations-agent --dry-run --task "Write the dai
 aks-agent run upgrade-agent --env dev --task "Open the due version pull requests." --trigger steps.json
 aks-agent permissions --runs runs/                   # least-privilege report from prototyping runs
 
-# Version pipeline (section 12)
+# Version pipeline (section 3.5)
 aks-agent versions --catalog aks-releases.yaml --clusters current-versions.yaml
 
 # Merge gate
@@ -109,7 +110,7 @@ Foundry (`model.provider: foundry` in `platform.yaml`, Entra ID token of the run
 provider and region are still an open question of the design. `AKS_AGENT_MODE=prototype` (build tenant, phases 1–2
 only) lets the tools write directly and logs it.
 
-## The egress agent in the lab (D59)
+## The egress agent in the lab (D61)
 
 `aks-terraform`'s **Egress agent** workflow runs [`egress-agent`](agents/egress-agent.yaml) against the build tenant
 with [`config/onek8s-dev.yaml`](config/onek8s-dev.yaml): Claude Sonnet 5.5 on Microsoft Foundry (Entra ID, the dev
@@ -129,11 +130,55 @@ after the last processed ingestion time (the checkpoint), but never more than 3 
 a first run or one after a long pause starts there; only denials, unless `--include-allowed` (or
 `firewall.includeAllowed`) adds the allowed lines for a firewall that still allows by default; no bare IP destinations;
 sources already known to be nodes or platform pods, or to belong to a namespace with a pending proposal, are dropped
-before any cluster access; in an overlay cell (design D61) a zone node's address stands for the application pods on the node
-(one candidate: its namespace; several: the model picks by configuration, the others are declined for a day); then pods are attributed and every
+before any cluster access; then pods are attributed and every
 (namespace, destination) already in the firewall file, in an open agent pull request, pending, merged in the last
 hour or rejected in the last week is dropped. Nothing left: no VPN, no cluster access, no model call. What is left
 goes into the model's task, so it neither re-queries the log nor re-maps the pods.
+
+## The documentation agent (design section 5.3)
+
+The hub firewall's rules name zones, not applications, so Azure cannot say which application uses a rule. The
+egress agent's rule files can: each entry names the namespace, the reason and the evidence. [`trafficdocs.py`](src/aks_agents/trafficdocs.py)
+joins those files with the application's own Flux configuration (its Kustomization in the team's repository, built
+with `kustomize` when installed), the zone's allow-list (the fleet's `policy/egress-allow-lists.yaml`) and the cells
+(`envs/*.tfvars` of aks-terraform) and writes Markdown pages with Mermaid pictures - GitHub renders them - one per
+application namespace and one per isolation zone, into the landing zone's `docs/traffic-flows/<spoke>/`. Every
+destination has a status: **allowed** and named in the configuration, **allowed but not named** by it (a hidden
+dependency or a stale rule), **named but without a rule** (denied), **proposed** in an open pull request, or on the
+**zone allow-list**. All of it is deterministic and reads Git only:
+
+```bash
+aks-agent docs traffic --spoke dev-int --landing-zone ../azure-landing-zone --fleet ../aks-fluxcd-platform \
+    --iac ../aks-terraform --app-repo onek8s/aks-fluxcd-example=../aks-fluxcd-example        # writes the pages
+aks-agent docs traffic ... --check                                                          # CI: fails when stale
+```
+
+`aks-terraform`'s **Traffic flow docs** workflow runs it after a firewall rule or an application change and, when a
+page changed, starts [`documentation-agent`](agents/documentation-agent.yaml), whose tool `traffic_flow_docs` writes
+the same pages into its workspace; the model only explains the findings and opens the pull request. The pages carry no
+timestamp, so a run that changes nothing opens nothing.
+
+### The lab examples
+
+The design site has a section of its own for the lab's test applications, `examples/lab/` of onek8s.github.io -
+outside the requirements, the design and the PDFs. [`labdocs.py`](src/aks_agents/labdocs.py) generates it from the
+same collection (cells, rule files, the applications' built Flux configuration, allow-lists, statuses, findings and
+pictures) plus the cells' settings (location, availability zones, Gateway implementation, the zones' classic node
+pools), the fleet's zones and Gateway, and each application's source repository (README description, endpoints,
+version), matched by the image's name: an index and one page per isolation zone, with a section per application -
+image and digest, replicas, placement labels, Services, routes, environment, egress with its status and the pictures.
+Deterministic, Git only, no timestamp; the command owns every `*.md` of the directory (a zone that is gone loses its
+page):
+
+```bash
+aks-agent docs lab --spoke dev-int --landing-zone ../azure-landing-zone --fleet ../aks-fluxcd-platform \
+    --iac ../aks-terraform --app-repo onek8s/aks-fluxcd-example=../aks-fluxcd-example \
+    --app-source onek8s/aks-hello=../aks-hello --site ../onek8s.github.io     # writes <site>/examples/lab/
+aks-agent docs lab ... --check                                               # fails when the pages are stale
+```
+
+`aks-terraform`'s **Lab examples** workflow runs it by hand and opens a pull request to the design site with the
+regenerated pages; a human merges it.
 
 ## Assumptions and open points for the design
 

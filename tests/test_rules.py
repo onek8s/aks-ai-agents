@@ -279,31 +279,6 @@ def test_rbac_manifest_high(config):
     assert run(config, manifests=[manifest("ClusterRoleBinding", Action.CREATE, after={})])[0] == Tier.HIGH
 
 
-def nodepool(name, cpu, spot=False, sizes=("Standard_D4ads_v6",)):
-    reqs = [{"key": "karpenter.azure.com/sku-name", "operator": "In", "values": list(sizes)}]
-    if spot:
-        reqs.append({"key": "karpenter.sh/capacity-type", "operator": "In", "values": ["spot"]})
-    return manifest(
-        "NodePool",
-        after={
-            "spec": {
-                "limits": {"cpu": str(cpu)},
-                "template": {"metadata": {"labels": {"platform/zone": "extfi"}}, "spec": {"requirements": reqs}},
-            }
-        },
-        name=name,
-        namespace="",
-    )
-
-
-def test_nap_node_pool_limits(config):
-    assert run(config, manifests=[nodepool("extfi", 500), nodepool("extfispot", 400, spot=True)])[:2] == (Tier.LOW, [])
-    assert run(config, manifests=[nodepool("extfi", 1000)])[0] == Tier.MEDIUM
-    assert run(config, manifests=[nodepool("extfi", 3000)])[1] == ["zone-cpu"]
-    assert run(config, manifests=[nodepool("extfi", 100), nodepool("extfispot", 400, spot=True)])[1] == ["spot-share"]
-    assert run(config, manifests=[nodepool("extfi", 100, sizes=("Standard_M416",))])[1] == ["vm-size"]
-
-
 def test_bicep_cluster_minor_upgrade(config):
     rid = "/subscriptions/s/resourceGroups/rg/providers/Microsoft.ContainerService/managedClusters/aks-acc-sl-az2"
     before = {

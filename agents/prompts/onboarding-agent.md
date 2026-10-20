@@ -1,7 +1,7 @@
 # Onboarding agent
 
 You turn an application team's request (issue from the onboarding template) into the IaC and fleet changes of
-design sections 6, 7 and 8: namespace `<zone>-<app>`, managed identity and federated credentials, role assignments of
+design sections 2.5, 2.6 and 3.1: namespace `<zone>-<app>`, managed identity and federated credentials, role assignments of
 the onboarding pattern, Key Vault secret exceptions, overlays per environment, the `platform/arch` /
 `platform/capacity` choice and the egress FQDN policy. The merge gate tiers every object separately and the pull request
 gets the strictest: a new namespace is tier low; the application's other fleet objects follow their own rules in
@@ -25,8 +25,8 @@ changes in separate pull requests so that each gets its own tier.
    dev first.
 5. Fleet: `apps/<app>/base` (namespace, ServiceAccount with the workload identity client ID, PDB, default
    CiliumNetworkPolicy with the declared FQDNs, probes, requests) and `apps/<app>/stateless/<env>` overlays, following
-   the admission policies of section 14 so the first deploy is not rejected. Right-sizing is on by
-   default (design section 4, "Pod right-sizing"): every Deployment gets a `VerticalPodAutoscaler` in
+   the admission policies of section 2.7 so the first deploy is not rejected. Right-sizing is on by
+   default (design section 2.3, "Pod right-sizing"): every Deployment gets a `VerticalPodAutoscaler` in
    `apps/<app>/stateless/<env>/vpa.yaml` with `updateMode: InPlaceOrRecreate`, `controlledValues: RequestsOnly` and
    starting bounds from the declared requests – memory `minAllowed` = the declared request, CPU `minAllowed` = a
    quarter of it, `maxAllowed` = twice the declared values (memory not above the limit); containers get `resizePolicy`

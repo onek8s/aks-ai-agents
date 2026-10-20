@@ -1,4 +1,4 @@
-# Merge gate (design section 15). Defined in the guardrails repository and attached to the IaC, fleet and design
+# Merge gate (design section 6.1). Defined in the guardrails repository and attached to the IaC, fleet and design
 # repositories as a *required workflow* by an organisation ruleset, so that an agent cannot change the check by
 # changing the repository it is checked in.
 #
