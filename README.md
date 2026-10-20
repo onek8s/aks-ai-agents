@@ -156,6 +156,28 @@ page changed, starts [`documentation-agent`](agents/documentation-agent.yaml), w
 the same pages into its workspace; the model only explains the findings and opens the pull request. The pages carry no
 timestamp, so a run that changes nothing opens nothing.
 
+### The lab examples
+
+The design site has a section of its own for the lab's test applications, `examples/lab/` of onek8s.github.io -
+outside the requirements, the design and the PDFs. [`labdocs.py`](src/aks_agents/labdocs.py) generates it from the
+same collection (cells, rule files, the applications' built Flux configuration, allow-lists, statuses, findings and
+pictures) plus the cells' settings (location, availability zones, Gateway implementation, the zones' classic node
+pools), the fleet's zones and Gateway, and each application's source repository (README description, endpoints,
+version), matched by the image's name: an index and one page per isolation zone, with a section per application -
+image and digest, replicas, placement labels, Services, routes, environment, egress with its status and the pictures.
+Deterministic, Git only, no timestamp; the command owns every `*.md` of the directory (a zone that is gone loses its
+page):
+
+```bash
+aks-agent docs lab --spoke dev-int --landing-zone ../azure-landing-zone --fleet ../aks-fluxcd-platform \
+    --iac ../aks-terraform --app-repo onek8s/aks-fluxcd-example=../aks-fluxcd-example \
+    --app-source onek8s/aks-hello=../aks-hello --site ../onek8s.github.io     # writes <site>/examples/lab/
+aks-agent docs lab ... --check                                               # fails when the pages are stale
+```
+
+`aks-terraform`'s **Lab examples** workflow runs it by hand and opens a pull request to the design site with the
+regenerated pages; a human merges it.
+
 ## Assumptions and open points for the design
 
 - **IaC repository layout**: the agents' writable paths assume `environments/<env>/{versions,capacity,applications}.auto.tfvars`,

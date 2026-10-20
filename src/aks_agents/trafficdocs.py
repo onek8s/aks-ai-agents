@@ -126,6 +126,7 @@ class Application:
     services: list[str] = field(default_factory=list)
     destinations: list[Destination] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
+    objects: list[dict[str, Any]] = field(default_factory=list, repr=False)  # the built configuration (labdocs.py)
 
     @property
     def slug(self) -> str:
@@ -315,7 +316,8 @@ def read_cells(iac: Path, env: str) -> dict[str, Cell]:
         cells[name.group(1)] = Cell(
             name=name.group(1),
             exposure=_string(text, "exposure") or "int",
-            acns=not re.search(r"(?m)^advanced_networking\s*=\s*null", text),
+            # ACNS only where the cell sets it: the variable's default is null (design v2.0, D80)
+            acns=bool(re.search(r"(?m)^advanced_networking\s*=\s*\{", text)),
             enabled=enabled,
         )
     return cells
@@ -390,10 +392,23 @@ def _json_patch(obj: dict[str, Any], ops: list[dict[str, Any]]) -> None:
             continue  # a patch the real build would refuse too; the picture shows the rest
 
 
+def _named_list(value: Any) -> bool:
+    return isinstance(value, list) and bool(value) and all(isinstance(v, dict) and "name" in v for v in value)
+
+
 def _merge(base: Any, patch: Any) -> Any:
+    """A strategic merge: maps key by key, lists of named items (containers, env, ports) item by item by name."""
     if isinstance(base, dict) and isinstance(patch, dict):
         for k, v in patch.items():
             base[k] = _merge(base.get(k), v) if k in base else v
+        return base
+    if _named_list(base) and _named_list(patch):
+        by_name = {item["name"]: item for item in base}
+        for item in patch:
+            if item["name"] in by_name:
+                _merge(by_name[item["name"]], item)
+            else:
+                base.append(item)
         return base
     return patch
 
@@ -441,15 +456,17 @@ def _transform(k: dict[str, Any], directory: Path, objects: list[dict[str, Any]]
     if k.get("namespace"):
         for o in objects:
             if o.get("kind") not in CLUSTER_SCOPED:
-                o.setdefault("metadata", {}).setdefault("namespace", k["namespace"])
+                o.setdefault("metadata", {})["namespace"] = k["namespace"]  # kustomize's: the outer one wins
     for image in k.get("images") or []:
         for o in objects:
             for c in (((o.get("spec") or {}).get("template") or {}).get("spec") or {}).get("containers") or []:
-                name, _, tag = str(c.get("image", "")).partition(":")
+                ref, _, digest = str(c.get("image", "")).partition("@")
+                name, _, tag = ref.partition(":")
                 if name == image.get("name"):
                     name = image.get("newName") or name
-                    tag = image.get("newTag") or tag
-                    c["image"] = f"{name}:{tag}" if tag else name
+                    tag = str(image.get("newTag") or tag)
+                    digest = str(image.get("digest") or digest)
+                    c["image"] = (f"{name}:{tag}" if tag else name) + (f"@{digest}" if digest else "")
     for rep in k.get("replicas") or []:
         for o in objects:
             named = (o.get("metadata") or {}).get("name") == rep.get("name")
@@ -1137,6 +1154,7 @@ def collect(sources: Sources) -> list[Application]:
         entries = [e for e in data.get("egress") or [] if isinstance(e, dict)]
         if repo is not None and app.source_path:
             objects = build_manifests(repo, app.source_path)
+            app.objects = objects
             app.workloads, app.routes, app.services = describe(objects, namespace)
             mentions = mentioned_names(repo, app.source_path, [str(e.get("fqdn", "")) for e in entries])
             if not objects:

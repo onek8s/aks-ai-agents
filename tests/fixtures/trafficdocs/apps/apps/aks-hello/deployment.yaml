@@ -5,6 +5,10 @@ metadata:
 spec:
   replicas: 2
   template:
+    metadata:
+      labels:
+        platform/arch: amd64
+        platform/capacity: spot
     spec:
       containers:
         - name: aks-hello
