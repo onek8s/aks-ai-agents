@@ -59,9 +59,17 @@ def country(zone: str) -> str:
     return COUNTRIES.get(zone.rsplit("-", 1)[-1].lower(), zone) if "-" in zone else zone
 
 
+EXPOSURES = {"int": "Internal", "ext": "External"}
+
+
 def zone_title(zone: str) -> str:
+    """``int-fi`` -> Internal - Finland: the exposure and the country, as people say it (the user); a zone without
+    a known exposure or country keeps its name."""
+    exposure, _, _ = zone.partition("-")
     name = country(zone)
-    return f"{zone} - {name}" if name != zone else zone
+    if name == zone:
+        return zone
+    return f"{EXPOSURES[exposure]} - {name}" if exposure in EXPOSURES else f"{zone} - {name}"
 
 
 def anchor(heading: str) -> str:
@@ -563,7 +571,7 @@ def index_page(lab: Lab) -> str:
             f"{', '.join(c.availability_zones) or '-'} | {c.gateway_implementation or 'none'} | "
             f"{', '.join(_code(z) for z in c.zones) or '-'} | {'built' if c.enabled else 'defined, not built'} |"
         )
-    out += ["", "## Zones", "", "| Zone | Country | Cells | Applications |", "|---|---|---|---|"]
+    out += ["", "## Zones", "", "| Zone | Code | Cells | Applications |", "|---|---|---|---|"]
     for zone in sorted(lab.zones):
         cells = ", ".join(_code(c.name) for c in lab.zone_cells(zone) if c.enabled) or "-"
         apps = ", ".join(
@@ -571,7 +579,7 @@ def index_page(lab: Lab) -> str:
             for a in lab.zones[zone]
             for s in lab.sections.get(a.namespace, [])
         )
-        out.append(f"| [{zone_title(zone)}]({zone}.md) | {country(zone)} | {cells} | {apps or '-'} |")
+        out.append(f"| [{zone_title(zone)}]({zone}.md) | {_code(zone)} | {cells} | {apps or '-'} |")
     out += ["", "## Findings", ""]
     if lab.findings:
         out.append("What the traffic flow documentation found in the rule files and the configuration:")
@@ -607,7 +615,7 @@ def zone_page(lab: Lab, zone: str) -> str:
         "",
         "| | |",
         "|---|---|",
-        f"| Isolation zone | {_code(zone)} ({country(zone)}) |",
+        f"| Isolation zone | {zone_title(zone)} ({_code(zone)}) |",
         f"| Cells | {'<br/>'.join(_cell_line(c) for c in cells) or '-'} |",
         f"| Domain | {_code(domain) if domain else '-'} |",
         f"| Gateway | {_code(gateway)}"
