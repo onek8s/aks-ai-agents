@@ -6,6 +6,9 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
+# A design citation: a page of the design repository's design/ or requirements/ folder, or a section number.
+DESIGN_CITATION = re.compile(r"((?:design|requirements)/\d+(?:\.\d+)?-[\w-]+\.md|[Ss]ection \d+(?:\.\d+)?)")
+
 
 @dataclass
 class Review:
@@ -107,7 +110,7 @@ def check_structure(
         if not content:
             problems.append(f"pull request body has no '{name}' section")
     design = sections.get("design section", "")
-    if design.strip() and not re.search(r"(docs/\d+(?:\.\d+)?-[\w-]+\.md|[Ss]ection \d+(?:\.\d+)?)", design):
+    if design.strip() and not DESIGN_CITATION.search(design):
         problems.append("'Design section' does not cite a design document section")
     if not pr.commits:
         problems.append("pull request has no commits")

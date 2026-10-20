@@ -3,11 +3,11 @@
 Implementation of the AI agents that run day 2 operations of [OneK8s](https://onek8s.github.io/) – one
 Kubernetes platform for every cloud, implemented first on AKS – described in
 [onek8s.github.io](https://github.com/onek8s/onek8s.github.io) –
-[section 6.1, AI-driven day 2 operations](https://github.com/onek8s/onek8s.github.io/blob/main/docs/6.1-ai-driven-day-2-operations.md),
+[section 6.1, AI-driven day 2 operations](https://github.com/onek8s/onek8s.github.io/blob/main/design/6.1-ai-driven-day-2-operations.md),
 plus the agent parts of
-[section 7.1, implementation project](https://github.com/onek8s/onek8s.github.io/blob/main/docs/7.1-implementation-project-and-acceptance-testing.md)
+[section 7.1, implementation project](https://github.com/onek8s/onek8s.github.io/blob/main/design/7.1-implementation-project-and-acceptance-testing.md)
 and the version pipeline of
-[section 3.5](https://github.com/onek8s/onek8s.github.io/blob/main/docs/3.5-zero-downtime-cluster-upgrades.md#update-policy).
+[section 3.5](https://github.com/onek8s/onek8s.github.io/blob/main/design/3.5-zero-downtime-cluster-upgrades.md#update-policy).
 
 > Status: **work in progress**, built for the build tenant (phase 2 of section 7.1). Not yet run against a real
 > environment.
