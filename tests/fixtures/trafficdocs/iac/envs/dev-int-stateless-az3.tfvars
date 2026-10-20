@@ -4,6 +4,16 @@ exposure = "int"
 advanced_networking = {
   observability = false
 }
+default_node_pool = {
+  vm_size            = "Standard_D4alds_v6"
+  availability_zones = ["3"]
+}
+zone_node_pools = {
+  max_count = 1 # quota
+}
+isolation_zones = {
+  int-se = { node_subnet_name = "snet-int-se-nodes", pod_subnet_name = "snet-int-se-pods" }
+}
 network_profile = {
   outbound_type = "userDefinedRouting"
 }

@@ -58,5 +58,10 @@ environments:
 documentation:
   repository: firewall
   path: docs/traffic-flows
+  # The lab examples of the design site (`aks-agent docs lab`, aks-terraform's Lab examples workflow, by hand):
+  # examples/lab/ of the design repository - outside the requirements, the design and the PDFs.
+  lab:
+    repository: design
+    path: examples/lab
 
 platformNamespaces: [kube-system, flux-system, gatekeeper-system, external-dns, external-secrets, infra-observability]
