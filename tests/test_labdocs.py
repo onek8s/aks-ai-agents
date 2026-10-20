@@ -19,8 +19,8 @@ def generate(**kw) -> lab.Result:
 def test_pages_one_per_zone_and_an_index():
     result = generate()
     assert set(result.files) == {"index.md", "int-fi.md", "int-se.md"}
-    assert result.files["int-se.md"].startswith("# int-se - Sweden\n")
-    assert result.files["int-fi.md"].startswith("# int-fi - Finland\n")
+    assert result.files["int-se.md"].startswith("# Internal - Sweden\n")
+    assert result.files["int-fi.md"].startswith("# Internal - Finland\n")
     assert result.files["index.md"].startswith("# Lab examples\n")
     for text in result.files.values():
         assert not text.startswith("---")  # no front matter: the first heading titles the page
@@ -29,6 +29,8 @@ def test_pages_one_per_zone_and_an_index():
 def test_country_names_and_anchors():
     assert lab.country("int-fi") == "Finland" and lab.country("ext-se") == "Sweden"
     assert lab.country("int-xx") == "int-xx" and lab.zone_title("lab") == "lab"
+    assert lab.zone_title("int-fi") == "Internal - Finland" and lab.zone_title("ext-se") == "External - Sweden"
+    assert lab.zone_title("dmz-fi") == "dmz-fi - Finland"
     assert lab.anchor("aks-hello in int-se-example") == "aks-hello-in-int-se-example"
 
 
@@ -40,7 +42,7 @@ def test_each_application_section_is_on_its_zone_page():
     assert "[aks-hello in int-se-example](#aks-hello-in-int-se-example)" in se
     index = result.files["index.md"]
     assert "[aks-hello in int-se-example](int-se.md#aks-hello-in-int-se-example)" in index
-    assert "[int-fi - Finland](int-fi.md)" in index and "[int-se - Sweden](int-se.md)" in index
+    assert "[Internal - Finland](int-fi.md)" in index and "[Internal - Sweden](int-se.md)" in index
     # A namespace without a workload in Git is listed, not given a section
     assert "- `int-se-gone`:" in se and "- `int-fi-quiet`:" in result.files["int-fi.md"]
 
