@@ -35,6 +35,42 @@ egress:
     evidence: "5 denied connections"
 """
 NEW = {"fqdn": "stats.grafana.org", "port": 443, "protocol": "https", "reason": "metrics", "evidence": "5 denied"}
+INT_FI_PATH = "stacks/platform-extensions/firewall-applications/dev-int/int-fi-example.yaml"
+# int-fi-example.yaml on main when azure-landing-zone#75 was opened ...
+INT_FI = """zone: int-fi
+contact: https://github.com/onek8s/aks-fluxcd-example/issues
+egress:
+  - fqdn: api.open-meteo.com
+    port: 443
+    protocol: https
+    reason: aks-hello 0.4.1 fetches a Helsinki weather forecast from the internet (api.open-meteo.com) as described in apps/firewall-egress-int-fi/kustomization.yaml
+    evidence: |
+      8 denied flows from pod aks-hello-895fcf8f8-jzfg6 in namespace int-fi-example on cluster aks-dev-int-stateless-az2, first seen 2026-10-16T04:43:17Z, last seen 2026-10-16T04:49:17Z
+      The destination is named in apps/firewall-egress-int-fi/kustomization.yaml, line 6-10
+      The flow was denied by the hub firewall, which saw the node address (viaNode: true).
+      The application configuration names this destination.
+  - fqdn: stats.grafana.org
+    port: 443
+    protocol: https
+    reason: The application aks-hello in int-fi-example needs to send metrics to the public Grafana cloud service for monitoring and visualization.
+    evidence: |
+      5 denied flows from pod aks-hello-895fcf8f8-jzfg6 in namespace int-fi-example on cluster aks-dev-int-stateless-az2, first seen 2026-10-16T08:39:12Z, last seen 2026-10-16T08:39:39Z
+      The flow was denied by the hub firewall, which saw the node address (viaNode: true).
+      The application configuration does not explicitly name this destination, but it is a plausible public API for metrics.
+"""
+# ... and as #75 (titled "Egress: int-se-example -> stats.grafana.org") changed it: stats.grafana.org became api.ipify.org.
+PR75_INT_FI = (
+    INT_FI.split("  - fqdn: stats.grafana.org")[0]
+    + """  - fqdn: api.ipify.org
+    port: 443
+    protocol: https
+    reason: The application aks-hello in int-fi-example needs to query its public IP address at startup.
+    evidence: |
+      6 denied flows from pod aks-hello-77db47cfcd-bbfv9 in namespace int-fi-example on cluster aks-dev-int-stateless-az2, first seen 2026-10-16T09:12:57Z, last seen 2026-10-16T09:13:11Z
+      The flow was denied by the hub firewall, which saw the node address (viaNode: true).
+      The application configuration names this destination.
+"""
+)
 
 
 def test_adding_keeps_existing_entries_verbatim_and_sorted():
@@ -85,11 +121,25 @@ def test_replacing_changing_or_deleting_an_entry_is_refused():
     keep_egress_entries(PATH, EXISTING, add_egress_entries(PATH, EXISTING, "int-se", "c", [NEW])[0])
 
 
+def test_the_change_of_pull_request_75_is_refused():
+    with pytest.raises(ToolError, match="removes the existing entry stats.grafana.org"):
+        keep_egress_entries(INT_FI_PATH, INT_FI, PR75_INT_FI)
+    text, added, _ = add_egress_entries(INT_FI_PATH, INT_FI, "int-fi", "c", [{**NEW, "fqdn": "api.ipify.org"}])
+    assert added == ["api.ipify.org"] and INT_FI.split("egress:\n")[1] in text  # both entries verbatim
+    assert [e["fqdn"] for e in yaml.safe_load(text)["egress"]] == [
+        "api.ipify.org",
+        "api.open-meteo.com",
+        "stats.grafana.org",
+    ]
+    keep_egress_entries(INT_FI_PATH, INT_FI, text)
+
+
 @pytest.fixture
 def ctx(tmp_path):
     origin = tmp_path / "origin" / "lz"
     (origin / PATH).parent.mkdir(parents=True)
     (origin / PATH).write_text(EXISTING)
+    (origin / INT_FI_PATH).write_text(INT_FI)
 
     def git(*args):
         subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *args], cwd=origin, check=True)
@@ -155,3 +205,55 @@ def test_a_pull_request_that_replaces_an_entry_is_refused(ctx):
     with pytest.raises(ToolError, match="removes the existing entry api.open-meteo.com"):
         REGISTRY["create_pull_request"].handler(ctx, PR)
     assert ctx.state["platform"].calls == []
+
+
+def test_one_pull_request_per_application_namespace(ctx):
+    """azure-landing-zone#75: the model added entries for two namespaces and opened one pull request, titled for one."""
+    add = REGISTRY["firewall_egress_add"].handler
+    add(
+        ctx,
+        {
+            "repo": "firewall",
+            "spoke": "dev-int",
+            "namespace": "int-se-example",
+            "zone": "int-se",
+            "contact": "c",
+            "entries": [NEW],
+        },
+    )
+    add(
+        ctx,
+        {
+            "repo": "firewall",
+            "spoke": "dev-int",
+            "namespace": "int-fi-example",
+            "zone": "int-fi",
+            "contact": "c",
+            "entries": [{**NEW, "fqdn": "api.ipify.org"}],
+        },
+    )
+    create = REGISTRY["create_pull_request"].handler
+    with pytest.raises(
+        ToolError, match=f"one pull request per application namespace: this change has {INT_FI_PATH}, {PATH}"
+    ):
+        create(ctx, PR)
+    with pytest.raises(ToolError, match="not changed in the workspace: other.yaml"):
+        create(ctx, {**PR, "paths": ["other.yaml"]})
+    assert ctx.state["platform"].calls == []
+
+    out = create(ctx, {**PR, "paths": [PATH]})
+    assert out["files"] == [PATH]
+    commits = [c for c in ctx.state["platform"].calls if c[0] == "commit"]
+    assert list(commits[0][4]) == [PATH]
+    # int-fi-example's change stayed in the workspace for its own pull request.
+    out = create(ctx, {**PR, "title": "Egress: int-fi-example -> api.ipify.org"})
+    assert out["files"] == [INT_FI_PATH] and out["branch"] != commits[0][2]
+    commits = [c for c in ctx.state["platform"].calls if c[0] == "commit"]
+    assert list(commits[1][4]) == [INT_FI_PATH]
+    assert [e["fqdn"] for e in yaml.safe_load(commits[1][4][INT_FI_PATH])["egress"]] == [
+        "api.ipify.org",
+        "api.open-meteo.com",
+        "stats.grafana.org",
+    ]
+    with pytest.raises(ToolError, match="no changes"):
+        create(ctx, PR)

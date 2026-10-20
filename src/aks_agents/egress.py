@@ -302,7 +302,9 @@ def task_text(proposed: dict[str, list[dict[str, Any]]], spoke: str) -> str:
         f"pods_by_ip again. The firewall files are under stacks/platform-extensions/firewall-applications/{spoke}/.",
         "For each namespace: check the destination in its configuration (application_source with the flow's `cluster`",
         "and `namespace`, then repo_read), add its destinations with firewall_egress_add (it keeps the file's",
-        "existing entries - never replace one) and open one pull request, as your instructions say. Then finish.",
+        "existing entries - never replace one) and open that namespace's pull request before the next namespace",
+        "(create_pull_request refuses two applications' files in one pull request), as your instructions say.",
+        "Then finish.",
         "",
         "```json",
         json.dumps(

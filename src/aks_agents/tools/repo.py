@@ -8,7 +8,8 @@ Grants (in the agent definition)::
     - create_pull_request: {repositories: [fleet, iac]}
 
 An agent can only read repositories and write paths its definition lists. Nothing is pushed until
-``create_pull_request``, which creates one commit through the Git platform's API (GitHub or Azure DevOps).
+``create_pull_request``, which creates one commit through the Git platform's API (GitHub or Azure DevOps) - of every
+change in the workspace, or only of the ``paths`` it names (the rest stays for the next pull request).
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ from __future__ import annotations
 import fnmatch
 import re
 import subprocess
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any
 
@@ -32,6 +33,9 @@ REPO_PROPERTY = {"type": "string", "description": "Repository key, e.g. iac, fle
 # Checks of a changed file before create_pull_request commits it: (glob, check(path, old text or None, new text or
 # None)) - a check raises ToolError to refuse the pull request. Other tool modules register theirs.
 FILE_CHECKS: list[tuple[str, Callable[[str, str | None, str | None], None]]] = []
+# Checks of a pull request's whole change set: check(changes) with every path that goes into it (new content, or None
+# for a deletion) - raises ToolError to refuse the pull request. Other tool modules register theirs.
+CHANGE_CHECKS: list[Callable[[dict[str, bytes | None]], None]] = []
 
 
 def git_platform(ctx: ToolContext) -> GitPlatform:
@@ -231,6 +235,19 @@ def repo_diff(ctx: ToolContext, args: dict[str, Any]) -> str:
     return _git(root, "diff") or "no changes"
 
 
+def _restore(root: Path, paths: Iterable[str], existing: set[str]) -> None:
+    """Puts these workspace files back to the default branch's state (removing the ones it does not have), so the
+    changes not committed stay for the next pull request."""
+    tracked = [p for p in paths if p in existing]
+    if tracked:
+        _git(root, "checkout", "--quiet", "HEAD", "--", *tracked)
+    for p in paths:
+        if p not in existing:
+            # repo_diff's intent-to-add entry, then the file
+            _git(root, "rm", "--quiet", "--cached", "--ignore-unmatch", "--", p, check=False)
+            (root / p).unlink(missing_ok=True)
+
+
 def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:40] or "change"
 
@@ -259,10 +276,18 @@ def _body(args: dict[str, Any], agent: str, run_id: str) -> str:
 
 @tool(
     "create_pull_request",
-    "Commit all your workspace changes in one repository and open a pull request from an agent/<you>/* branch. "
-    "Keep it to one concern and, in prd, one cell. The body is generated from the fields.",
+    "Commit your workspace changes in one repository (all of them, or only the `paths` you name) and open a pull "
+    "request from an agent/<you>/* branch. Keep it to one concern and, in prd, one cell. The body is generated from "
+    "the fields.",
     {
         "repo": REPO_PROPERTY,
+        "paths": {
+            "type": "array",
+            "items": {"type": "string"},
+            "minItems": 1,
+            "description": "Only these changed files go into this pull request; your other workspace changes stay "
+            "for the next one. Default: every change in the workspace.",
+        },
         "title": {"type": "string", "maxLength": 100},
         "intent": {"type": "string", "description": "The issue, alert or schedule this answers (link it)"},
         "evidence": {"type": "string", "description": "Queries, metrics and links that show the change is needed"},
@@ -283,6 +308,13 @@ def create_pull_request(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any
     changes = _changes(root)
     if not changes:
         raise ToolError("no changes in the workspace; write files first")
+    if args.get("paths"):
+        missing = sorted(set(args["paths"]) - set(changes))
+        if missing:
+            raise ToolError(
+                f"not changed in the workspace: {', '.join(missing)}; your changes: {', '.join(sorted(changes))}"
+            )
+        changes = {path: content for path, content in changes.items() if path in args["paths"]}
     for path, content in changes.items():
         _check_write_path(ctx, key, path)
         checks = [check for glob, check in FILE_CHECKS if fnmatch.fnmatchcase(path, glob)]
@@ -291,6 +323,8 @@ def create_pull_request(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any
             new = content.decode() if content is not None else None
             for check in checks:
                 check(path, old, new)
+    for change_check in CHANGE_CHECKS:
+        change_check(changes)
     if not DESIGN_CITATION.search(args["design_section"]):
         raise ToolError("design_section must cite a design document, e.g. design/6.1-ai-driven-day-2-operations.md")
     repo = ctx.platform.repository(key)
@@ -298,6 +332,7 @@ def create_pull_request(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any
     branch = f"agent/{agent}/{_slug(args['title'])}-{run_id.rsplit('-', 1)[-1]}"
     message = f"{args['title']}\n\n{args['intent'].strip()[:1000]}\n\nAgent: {agent}\nAgent-Run: {run_id}\n"
     base_sha = _git(root, "rev-parse", "HEAD").strip()
+    existing = set(_git(root, "ls-tree", "-r", "--name-only", "HEAD").splitlines())
     output: dict[str, Any] = {
         "type": "pull_request",
         "repo": repo,
@@ -311,14 +346,12 @@ def create_pull_request(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any
     else:
         gp = git_platform(ctx)
         body = pull_request_body(args, agent, run_id, gp.max_body_length)
-        existing = set(_git(root, "ls-tree", "-r", "--name-only", "HEAD").splitlines())
         try:
             gp.commit_files(repo, base_sha, branch, message, changes, existing)
             output.update(gp.create_pull_request(repo, branch, args["title"], body, bool(args.get("draft", False))))
         except PlatformError as err:
             raise ToolError(f"{gp.name}: {err}") from err
     ctx.outputs.append(output)
-    # Start the next change from a clean default branch.
-    _git(root, "reset", "--quiet", "--hard", "HEAD")
-    _git(root, "clean", "-fdq")
+    # The committed files start the next change from the default branch; changes left out stay for the next one.
+    _restore(root, changes, existing)
     return output

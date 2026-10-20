@@ -12,11 +12,13 @@ environment in ``platform.yaml``):
 
 Both are read-only. The pods are found with read verbs only (pods, nodes and namespaces - never Secrets).
 ``firewall_egress_add`` adds destinations to an application's egress file in the run's workspace without touching its
-existing entries, and create_pull_request refuses any change of such a file that removes or rewrites one."""
+existing entries, and create_pull_request refuses any change of such a file that removes or rewrites one - and a pull
+request that changes two applications' files (one namespace, one pull request)."""
 
 from __future__ import annotations
 
 import datetime as dt
+import fnmatch
 import ipaddress
 import json
 import os
@@ -29,7 +31,7 @@ import yaml
 from .base import ToolContext, ToolError, tool
 from .core import safe_join
 from .kubernetes import _cluster
-from .repo import FILE_CHECKS, _check_repo, _check_write_path, workspace
+from .repo import CHANGE_CHECKS, FILE_CHECKS, _check_repo, _check_write_path, workspace
 from .shell import execute
 
 MAX_FLOWS = 200
@@ -525,4 +527,18 @@ def firewall_egress_add(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any
     return {"path": path, "added": added, "alreadyThere": present}
 
 
+def one_application_per_pull_request(changes: dict[str, bytes | None]) -> None:
+    """Refuses a pull request that changes more than one application's egress file: one namespace, one pull request
+    (azure-landing-zone#75 carried int-fi-example's change under int-se-example's title, and the reviewer of one
+    namespace's rule merged or closed the other's with it)."""
+    files = sorted(p for p in changes if fnmatch.fnmatchcase(p, f"{APPLICATION_FILES}/*/*.yaml"))
+    if len(files) > 1:
+        raise ToolError(
+            f"one pull request per application namespace: this change has {', '.join(files)} - call "
+            f'create_pull_request with paths ["{files[0]}"] for that namespace, then again for the next one; the '
+            "files left out stay in your workspace"
+        )
+
+
 FILE_CHECKS.append((f"{APPLICATION_FILES}/*/*.yaml", keep_egress_entries))
+CHANGE_CHECKS.append(one_application_per_pull_request)

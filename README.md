@@ -120,7 +120,9 @@ from Log Analytics with Reader: labfw's `LabfwFirewallLog_CL`, which the Azure M
 one pull request per application namespace to `onek8s/azure-landing-zone`. It adds destinations with
 `firewall_egress_add`, which keeps the file's existing entries line for line, and `create_pull_request` refuses any
 change of an application's egress file that removes or rewrites an existing entry (azure-landing-zone#72 replaced
-api.open-meteo.com with the new destination).
+api.open-meteo.com with the new destination), and a pull request that changes two applications' files
+(azure-landing-zone#75 carried int-fi-example's change under int-se-example's title; `paths` commits one file and
+leaves the rest for the next pull request).
 
 The model is the expensive part, so [`egress.py`](src/aks_agents/egress.py) does everything else in code and keeps a
 state file between runs (`aks-agent egress new`, then `aks-agent egress propose`): only what Log Analytics ingested

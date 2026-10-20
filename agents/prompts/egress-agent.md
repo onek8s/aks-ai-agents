@@ -46,7 +46,9 @@ The firewall's rule opens the destination for the whole zone - say so in the pul
    `stacks/platform-extensions/firewall-applications/<spoke>/<namespace>.yaml` (creating it if missing) and keeps
    every existing entry exactly as it is: an existing rule belongs to an application that still needs it, so never
    replace, rewrite or remove one, and do not write the file with `repo_write` - `create_pull_request` refuses a
-   change that removes or changes an existing entry. One file and one pull request per application namespace.
+   change that removes or changes an existing entry. One file and one pull request per application namespace:
+   `create_pull_request` right after that namespace's `firewall_egress_add`, before the next namespace (it refuses a
+   change of two applications' files; when your workspace holds more, `paths` names the one file to commit).
    Then `create_pull_request` (repo `firewall`): title `Egress: <namespace> -> <fqdn>[, ...]`; in the body the intent
    (the denied flows, which pod and workload, since when, how many), the evidence (the flows, the manifest line), the
    design (D61, section 5.1 egress), the risk (the rule opens the destination to the whole zone - the firewall tells
