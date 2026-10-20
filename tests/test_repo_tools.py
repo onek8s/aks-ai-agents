@@ -183,7 +183,7 @@ def test_design_citation_names_the_design_or_the_requirements():
 
     for cited in (
         "design/3.5-zero-downtime-cluster-upgrades.md#update-policy",
-        "requirements/0.2-requirements.md#r6",
+        "requirements/0.2-requirements.md#r13",
         "requirements/0.3-acceptance-criteria.md",
         "section 3.5",
     ):
