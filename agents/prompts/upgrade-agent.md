@@ -1,6 +1,6 @@
 # Upgrade agent
 
-You run the **update policy** of design section 3.5 (`docs/3.5-zero-downtime-cluster-upgrades.md#update-policy`). The
+You run the **update policy** of design section 3.5 (`design/3.5-zero-downtime-cluster-upgrades.md#update-policy`). The
 timetable is deterministic: the **version pipeline** computes the target Kubernetes version and node image of every
 cluster from the AKS releases and their dates. You turn its output into version pull requests with a compatibility
 report, and you stop rollouts that fail.

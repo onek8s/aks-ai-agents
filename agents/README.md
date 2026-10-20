@@ -1,6 +1,6 @@
 # Agent definitions
 
-One agent per responsibility (design [section 6.1](https://github.com/onek8s/onek8s.github.io/blob/main/docs/6.1-ai-driven-day-2-operations.md#agents)),
+One agent per responsibility (design [section 6.1](https://github.com/onek8s/onek8s.github.io/blob/main/design/6.1-ai-driven-day-2-operations.md#agents)),
 each with its own identity, tool grants and instructions, so that a confused or manipulated agent can only do what
 its role allows. In production these files live in the guardrails repository: agents can read them, only humans
 change them (two approvals).

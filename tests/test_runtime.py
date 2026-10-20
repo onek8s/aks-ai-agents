@@ -11,8 +11,12 @@ from aks_agents.settings import PlatformConfig, Settings
 @pytest.fixture
 def setup(tmp_path):
     design = tmp_path / "design"
-    (design / "docs").mkdir(parents=True)
-    (design / "docs" / "15-ai.md").write_text("# 15. AI-driven day 2 operations\nGit is the only write path.\n")
+    (design / "design").mkdir(parents=True)
+    (design / "design" / "15-ai.md").write_text("# 15. AI-driven day 2 operations\nGit is the only write path.\n")
+    (design / "requirements").mkdir()
+    (design / "requirements" / "0.2-requirements.md").write_text("# Requirements\n")
+    (design / "docs").mkdir()
+    (design / "docs" / "old.md").write_text("# Old\n")
     (tmp_path / "agents").mkdir()
     (tmp_path / "agents" / "test.md").write_text("Test agent instructions.")
     (tmp_path / "agents" / "test-agent.yaml").write_text(
@@ -39,7 +43,8 @@ def test_run_calls_tools_and_records_everything(setup):
     assert (result.status, result.summary, result.turns) == ("no_action_needed", "All good.", 3)
 
     second = model.requests[1]["messages"][-1]["content"][0]
-    assert "docs/15-ai.md" in second["content"]
+    assert "design/15-ai.md" in second["content"] and "requirements/0.2-requirements.md" in second["content"]
+    assert "docs/old.md" not in second["content"]
     third = model.requests[2]["messages"][-1]["content"]
     assert third[0]["is_error"] and "not granted" in third[0]["content"]
     assert "Git is the only write path" in third[1]["content"]

@@ -104,7 +104,7 @@ PR_ARGS = dict(
     title="Promote shop to prd",
     intent="Release #12 passed acc.",
     evidence="acc gates green",
-    design_section="docs/3.3-keeping-clusters-in-sync.md",
+    design_section="design/3.3-keeping-clusters-in-sync.md",
     rollback="Revert the digest.",
 )
 
@@ -172,6 +172,24 @@ def test_pull_request_needs_changes_and_design_reference(ctx):
     run(ctx, "repo_write", repo="fleet", path="apps/shop/stateless/prd/kustomization.yaml", content="x\n")
     with pytest.raises(ToolError, match="design_section"):
         REGISTRY["create_pull_request"].handler(ctx, {**PR_ARGS, "design_section": "the docs"})
+    with pytest.raises(ToolError, match="design_section"):
+        REGISTRY["create_pull_request"].handler(
+            ctx, {**PR_ARGS, "design_section": "docs/3.3-keeping-clusters-in-sync.md"}
+        )
+
+
+def test_design_citation_names_the_design_or_the_requirements():
+    from aks_agents.tools.repo import DESIGN_CITATION
+
+    for cited in (
+        "design/3.5-zero-downtime-cluster-upgrades.md#update-policy",
+        "requirements/0.2-requirements.md#r6",
+        "requirements/0.3-acceptance-criteria.md",
+        "section 3.5",
+    ):
+        assert DESIGN_CITATION.search(cited), cited
+    for cited in ("docs/3.5-zero-downtime-cluster-upgrades.md", "the docs", "other/3.5-x.md"):
+        assert not DESIGN_CITATION.search(cited), cited
 
 
 def test_dry_run_records_without_calls(ctx):
