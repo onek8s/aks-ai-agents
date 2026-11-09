@@ -51,7 +51,7 @@ def test_the_section_states_what_git_deploys():
     se = generate().files["int-se.md"]
     assert "| Deployment | `aks-hello`, replicas 3 |" in se
     assert "`acronek8sdev.azurecr.io/aks-hello`, version `0.5.0`" in se
-    assert "`platform/arch: amd64`, `platform/capacity: spot` - the zone's pools `intsespot`, `intse`" in se
+    assert "`platform/arch: amd64`, `platform/capacity: spot` - the zone's pools `se1spot`, `se1`" in se
     assert "| `aks-hello` | 80 | `h2c` | `kubernetes.io/h2c` |" in se
     assert "`hello-aks-dev-int-stateless-az3.int-se.dev.onek8s.lol`" in se
     assert "| `CLUSTER_NAME` | `aks-dev-int-stateless-az3` |" in se  # Flux's variables substituted
@@ -70,8 +70,8 @@ def test_the_zone_facts_cells_pools_gateway_allow_list():
     se = generate().files["int-se.md"]
     assert "`aks-dev-int-stateless-az3` (germanywestcentral, availability zone 3)" in se
     assert "`int-se-gateway/int-se` (traefik), listener HTTPS 443 `*.int-se.dev.onek8s.lol`" in se
-    assert "| `aks-dev-int-stateless-az3` | `intsespot` | amd64 | spot | Standard_D2alds_v6 | 0-1 |" in se
-    assert "| `aks-dev-int-stateless-az3` | `intsearm` | arm64 | on-demand | Standard_D2pds_v6 | 0-1 |" in se
+    assert "| `aks-dev-int-stateless-az3` | `se1spot` | amd64 | spot | Standard_D2alds_v6 | 0-1 |" in se
+    assert "| `aks-dev-int-stateless-az3` | `se1arm` | arm64 | on-demand | Standard_D2pds_v6 | 0-1 |" in se
     assert "| Zone allow-list | `login.microsoftonline.com`, `*.blob.example.net`" in se
     assert "a_int_se_example" in se and "z_login_microsoftonline_com" in se  # trafficdocs' zone picture
     fi = generate().files["int-fi.md"]
@@ -180,3 +180,24 @@ def test_the_documentation_agent_may_write_the_lab_pages():
     definition = AgentDefinition.load(root / "agents" / "documentation-agent.yaml")
     paths = definition.grant("repo_write").options["paths"]
     assert paths["design"] == ["examples/lab/*"] and paths["firewall"] == ["docs/traffic-flows/*"]
+
+
+def test_pool_generations_side_by_side_for_a_blue_green_upgrade():
+    block = """{
+  max_count = 1
+  generations = {
+    "1" = { kubernetes_version = "1.36", retiring_zones = ["int-fi"] }
+    "2" = { zones = ["int-fi"], amd64_vm_size = "Standard_D4alds_v6" }
+  }
+}"""
+    generations = lab._generations(block)
+    assert generations["1"]["zones"] is None and generations["1"]["retiring_zones"] == ["int-fi"]
+    assert generations["2"]["zones"] == ["int-fi"] and generations["2"]["amd64_vm_size"] == "Standard_D4alds_v6"
+    assert lab._attributes(lab._without_generations(block)) == {"max_count": "1"}
+    settings = lab.CellSettings(name="c", stem="c", exposure="int", enabled=True, zones=["int-fi", "int-se"])
+    settings.pools = {"amd64_vm_size": "Standard_D2alds_v6", "arm64_vm_size": "Standard_D2pds_v6", "max_count": "1"}
+    settings.generations = generations
+    fi = {p["name"]: p for p in lab.pools_of(settings, "int-fi")}
+    assert sorted(fi) == ["fi1", "fi1arm", "fi1armspot", "fi1spot", "fi2", "fi2arm", "fi2armspot", "fi2spot"]
+    assert fi["fi1"]["retiring"] and not fi["fi2"]["retiring"] and fi["fi2"]["vm_size"] == "Standard_D4alds_v6"
+    assert [p["name"] for p in lab.pools_of(settings, "int-se")] == ["se1", "se1spot", "se1arm", "se1armspot"]
