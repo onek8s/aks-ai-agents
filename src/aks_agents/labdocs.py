@@ -92,6 +92,8 @@ class CellSettings:
     gateway_implementation: str = ""
     zones: list[str] = field(default_factory=list)
     pools: dict[str, str] | None = None  # zone_node_pools with the variable's defaults; None: no zone pools
+    # zone_node_pools.generations: generation -> its zones (None: every zone), retiring_zones and own settings
+    generations: dict[str, dict[str, Any]] = field(default_factory=lambda: {"1": {"zones": None, "retiring_zones": []}})
     zone_domains: dict[str, str] = field(default_factory=dict)  # from the fleet's zones.yaml
 
 
@@ -119,6 +121,30 @@ def _attributes(block: str) -> dict[str, str]:
     out = {}
     for m in re.finditer(r'(?m)^\s*"?([\w-]+)"?\s*=\s*("([^"]*)"|[\w.]+)\s*,?\s*$', block):
         out[m.group(1)] = m.group(3) if m.group(3) is not None else m.group(2)
+    return out
+
+
+def _without_generations(block: str) -> str:
+    m = re.search(r"(?m)^\s*generations\s*=\s*\{", block)
+    if not m:
+        return block
+    inner = t._block(block, m.end() - 1)
+    end = block.index(inner, m.start()) + len(inner)
+    return block[: m.start()] + block[end:]
+
+
+def _generations(block: str) -> dict[str, dict[str, Any]]:
+    """``zone_node_pools.generations`` of a tfvars block: generation -> zones, retiring_zones and own settings."""
+    m = re.search(r"(?m)^\s*generations\s*=\s*\{", block)
+    if not m:
+        return {}
+    out: dict[str, dict[str, Any]] = {}
+    for generation, body in t._entries(t._block(block, m.end() - 1)).items():
+        zones = re.search(r"(?<![\w_])zones\s*=\s*\[", body)
+        settings: dict[str, Any] = {k: v for k, v in _attributes(body.replace(",", "\n")).items()}
+        settings["zones"] = t._strings(body, "zones") if zones else None
+        settings["retiring_zones"] = t._strings(body, "retiring_zones")
+        out[generation] = settings
     return out
 
 
@@ -168,7 +194,10 @@ def read_cell_settings(iac: Path, env: str, cells: dict[str, t.Cell]) -> dict[st
         settings.zones = sorted(t._entries(zones)) if zones else []
         pools = _hcl_block(texts, "zone_node_pools")
         if pools is not None:
-            settings.pools = {**pool_defaults, **_attributes(pools)}
+            generations = _generations(pools)
+            if generations:
+                settings.generations = generations
+            settings.pools = {**pool_defaults, **_attributes(_without_generations(pools))}
         out[cell.name] = settings
     return out
 
@@ -466,35 +495,45 @@ def _blob(repo: str, path: str, tree: bool = False) -> str:
     return f"{_GITHUB}/{repo}/{'tree' if tree else 'blob'}/main/{path}"
 
 
+_POOL_KINDS = (("", "amd64", False), ("spot", "amd64", True), ("arm", "arm64", False), ("armspot", "arm64", True))
+
+
 def pools_of(settings: CellSettings, zone: str) -> list[dict[str, str]]:
-    """The classic node pools aks-terraform gives a zone in a cell (``zone_node_pools``)."""
+    """The classic node pools aks-terraform gives a zone in a cell (``zone_node_pools``): per generation
+    ``<country><generation>``, ``...spot``, ``...arm``, ``...armspot`` (``se1spot`` for int-se's generation 1)."""
     if settings.pools is None or zone not in settings.zones:
         return []
-    p, base = settings.pools, zone.replace("-", "")
+    country = zone.split("-")[-1]
     out = []
-    for suffix, arch, spot in (("", "amd64", False), ("spot", "amd64", True), ("arm", "arm64", False)):
-        out.append(_pool(base + suffix, arch, spot, p))
-    out.append(_pool(base + "armspot", "arm64", True, p))
+    for generation, g in sorted(settings.generations.items()):
+        if g.get("zones") is not None and zone not in g["zones"]:
+            continue
+        p = {**settings.pools, **{k: v for k, v in g.items() if isinstance(v, str)}}
+        retiring = zone in g.get("retiring_zones", [])
+        for suffix, arch, spot in _POOL_KINDS:
+            out.append(_pool(f"{country}{generation}{suffix}", arch, spot, p, retiring))
     return out
 
 
-def _pool(name: str, arch: str, spot: bool, p: dict[str, str]) -> dict[str, str]:
+def _pool(name: str, arch: str, spot: bool, p: dict[str, str], retiring: bool = False) -> dict[str, str]:
     size = p.get("amd64_vm_size" if arch == "amd64" else "arm64_vm_size", "")
     return {
         "name": name,
         "arch": arch,
         "capacity": "spot" if spot else "on-demand",
         "vm_size": size,
-        "nodes": f"0-{p.get('spot_max_count' if spot else 'max_count', '?')}",
+        "nodes": f"0-{p.get('spot_max_count' if spot else 'max_count', '?')}"
+        + (" (retiring: no new pods)" if retiring else ""),
         "os_disk": p.get("os_disk_type", ""),
         "max_pods": p.get("max_pods", ""),
+        "retiring": "yes" if retiring else "",
     }
 
 
 def _matching_pools(section: Section, pools: list[dict[str, str]]) -> list[str]:
     arch = section.labels.get("platform/arch")
     spot = section.labels.get("platform/capacity") == "spot"
-    chosen = [p for p in pools if not arch or p["arch"] == arch]
+    chosen = [p for p in pools if (not arch or p["arch"] == arch) and not p.get("retiring")]
     if spot:
         chosen.sort(key=lambda p: p["capacity"] != "spot")
     else:
