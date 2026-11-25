@@ -1,0 +1,10 @@
+zone: int-fi
+owner:
+  team: example
+  cost_center: example
+  contact: "https://github.com/onek8s/aks-fluxcd-example/issues"
+flux:
+  url: https://github.com/onek8s/aks-fluxcd-example
+  path: ./firewall-egress-int-fi
+  cell_paths:
+    aks-dev-int-stateful: ./apps
