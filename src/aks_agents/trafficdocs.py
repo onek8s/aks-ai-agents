@@ -5,7 +5,8 @@ rules are written per application: the egress agent's files ``firewall-applicati
 for every destination, the namespace that asked for it, why (the line of its configuration) and the evidence (the
 denied flows). This module joins those files with what the application's own configuration says (its Flux
 Kustomization in the team's repository), the zone's allow-list (the fleet's ``policy/egress-allow-lists.yaml``) and
-the cells it runs in (aks-terraform's tenant catalogue and ``envs/*.tfvars``), and writes Markdown pages with Mermaid pictures:
+the cells it runs in (aks-terraform's tenant catalogue and ``envs/*.tfvars``), and writes Markdown pages with
+Mermaid pictures:
 
 - per application (``docs/traffic-flows/<spoke>/<namespace>.md``): who reaches it (gateway, hostnames), what it
   runs (workloads, images) and every destination outside the cluster with its status - allowed and named in the
