@@ -1,0 +1,11 @@
+zone: int-se
+owner:
+  team: example
+  cost_center: example
+  contact: "https://github.com/onek8s/aks-fluxcd-example/issues"
+flux:
+  url: https://github.com/onek8s/aks-fluxcd-example
+  path: ./firewall-egress
+  substitute:
+    zone_domain: int-se.dev.onek8s.lol
+    home_cell: aks-dev-int-stateless-az3

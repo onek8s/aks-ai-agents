@@ -54,6 +54,26 @@ def test_managed_namespaces_per_cell_with_comments_and_quoted_keys():
     assert found["ext-fi-example"]["aks-dev-ext-stateless-az1"]["zone"] == "ext-fi"
 
 
+def test_the_tenant_catalogue_names_each_tenant_in_the_cells_of_its_zone():
+    found = t.read_managed_namespaces(FIXTURES / "tenants-iac", "dev")
+    se = found["int-se-example"]
+    assert list(se) == ["aks-dev-int-stateless-az3"]
+    az3 = se["aks-dev-int-stateless-az3"]
+    assert az3["zone"] == "int-se" and az3["path"] == "firewall-egress" and az3["team"] == "example"
+    assert az3["contact"] == "https://github.com/onek8s/aks-fluxcd-example/issues"
+    assert az3["zone_domain"] == "int-se.dev.onek8s.lol" and az3["home_cell"] == "aks-dev-int-stateless-az3"
+    fi = found["int-fi-example"]
+    assert fi["aks-dev-int-stateless-az3"]["path"] == "firewall-egress-int-fi"
+    assert fi["aks-dev-int-stateful"]["path"] == "apps"  # cell_paths
+    # A tenant that names its cells is in those alone; without flux it syncs nothing.
+    assert list(found["int-fi-orders"]) == ["aks-dev-int-stateful"]
+    assert found["int-fi-orders"]["aks-dev-int-stateful"]["url"] == ""
+
+
+def test_without_a_catalogue_the_cells_tfvars_are_read():
+    assert t.read_tenant_catalogue(FIXTURES / "iac", "dev") is None
+
+
 def test_the_small_build_follows_resources_components_images_and_patches():
     objects = t._build(FIXTURES / "apps" / "firewall-egress")
     kinds = sorted(o["kind"] for o in objects)

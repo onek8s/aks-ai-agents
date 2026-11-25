@@ -1,0 +1,6 @@
+zone: int-fi
+cells: [aks-dev-int-stateful]
+owner:
+  team: orders
+  cost_center: orders
+  contact: orders@example.com

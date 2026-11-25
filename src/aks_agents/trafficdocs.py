@@ -5,7 +5,7 @@ rules are written per application: the egress agent's files ``firewall-applicati
 for every destination, the namespace that asked for it, why (the line of its configuration) and the evidence (the
 denied flows). This module joins those files with what the application's own configuration says (its Flux
 Kustomization in the team's repository), the zone's allow-list (the fleet's ``policy/egress-allow-lists.yaml``) and
-the cells it runs in (aks-terraform's ``envs/*.tfvars``), and writes Markdown pages with Mermaid pictures:
+the cells it runs in (aks-terraform's tenant catalogue and ``envs/*.tfvars``), and writes Markdown pages with Mermaid pictures:
 
 - per application (``docs/traffic-flows/<spoke>/<namespace>.md``): who reaches it (gateway, hostnames), what it
   runs (workloads, images) and every destination outside the cluster with its status - allowed and named in the
@@ -323,9 +323,57 @@ def read_cells(iac: Path, env: str) -> dict[str, Cell]:
     return cells
 
 
+def read_tenant_catalogue(iac: Path, env: str) -> dict[str, dict[str, dict[str, Any]]] | None:
+    """aks-terraform's tenant catalogue (``tenants/catalogue/<env>/<namespace>.yaml``, the cells and their zones in
+    ``tenants/envs/<env>.tfvars``): namespace -> cluster -> {team, contact, zone, url, path, zone_domain,
+    home_cell}. A tenant is in every cell that holds its zone, or in the cells it names; a cell may sync another
+    path (``flux.cell_paths``). None when the checkout has no catalogue (before the tenants stack)."""
+    tfvars = iac / "tenants" / "envs" / f"{env}.tfvars"
+    if not tfvars.is_file():
+        return None
+    text = _strip_hcl_comments(tfvars.read_text())
+    directory = iac / "tenants" / (_string(text, "catalogue_dir") or f"catalogue/{env}")
+    zones_of: dict[str, list[str]] = {}
+    m = re.search(r"(?m)^cells\s*=\s*\{", text)
+    if m:
+        for cell, block in _entries(_block(text, m.end() - 1)).items():
+            listed = re.search(r"zones\s*=\s*\[([^\]]*)\]", block)
+            zones_of[cell] = re.findall(r'"([^"]+)"', listed.group(1)) if listed else []
+    found: dict[str, dict[str, dict[str, Any]]] = {}
+    for f in sorted(directory.glob("*.yaml")):
+        try:
+            tenant = yaml.safe_load(f.read_text()) or {}
+        except yaml.YAMLError:
+            continue
+        if not isinstance(tenant, dict):
+            continue
+        zone = str(tenant.get("zone", ""))
+        owner = tenant.get("owner") or {}
+        flux = tenant.get("flux") or {}
+        substitute = flux.get("substitute") or {}
+        cell_paths = flux.get("cell_paths") or {}
+        cells = tenant.get("cells") or [c for c, zones in zones_of.items() if zone in zones]
+        for cell in cells:
+            path = str(cell_paths.get(cell) or flux.get("path") or "./")
+            found.setdefault(f.stem, {})[str(cell)] = {
+                "team": str(owner.get("team", "")),
+                "contact": str(owner.get("contact", "")),
+                "zone": zone,
+                "url": str(flux.get("url", "")),
+                "path": path.removeprefix("./").strip("/") or ".",
+                "zone_domain": str(substitute.get("zone_domain", "")),
+                "home_cell": str(substitute.get("home_cell", "")),
+            }
+    return found
+
+
 def read_managed_namespaces(iac: Path, env: str) -> dict[str, dict[str, dict[str, Any]]]:
-    """``managed_namespaces`` of every cell's tfvars: namespace -> cluster -> {team, contact, zone, url, path,
-    zone_domain, home_cell} (a cell may sync another path of the same repository, e.g. the stateful overlay)."""
+    """The environment's application namespaces: namespace -> cluster -> {team, contact, zone, url, path,
+    zone_domain, home_cell} (a cell may sync another path of the same repository, e.g. the stateful overlay).
+    From the tenant catalogue, or - in a checkout from before it - ``managed_namespaces`` of every cell's tfvars."""
+    catalogue = read_tenant_catalogue(iac, env)
+    if catalogue is not None:
+        return catalogue
     found: dict[str, dict[str, dict[str, Any]]] = {}
     for f in sorted((iac / "envs").glob(f"{env}-*.tfvars")):
         text = _strip_hcl_comments(f.read_text())
@@ -1118,7 +1166,8 @@ def _chosen(per_cell: dict[str, dict[str, Any]], cells: dict[str, Cell]) -> dict
 
 
 def collect(sources: Sources) -> list[Application]:
-    """Every application namespace of the spoke: from the cells' ``managed_namespaces`` and the rule files."""
+    """Every application namespace of the spoke: from the tenant catalogue (or the cells' ``managed_namespaces``) and
+    the rule files."""
     files = read_application_files(sources.landing_zone, sources.spoke)
     cells = read_cells(sources.iac, sources.env)
     managed = read_managed_namespaces(sources.iac, sources.env)
@@ -1166,7 +1215,7 @@ def collect(sources: Sources) -> list[Application]:
             )
         elif not m:
             app.notes.append(
-                "No cell's managed_namespaces names this namespace: the rule file exists, the application may be gone."
+                "No tenant of the catalogue is this namespace: the rule file exists, the application may be gone."
             )
         proposed = sources.proposed.get(namespace, {})
         classify(app, entries, allow_lists.get(zone, {}), proposed, rule_group, mentions, platform_rules)
