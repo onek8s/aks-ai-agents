@@ -121,6 +121,7 @@ class Application:
     source_path: str = ""
     zone_domain: str = ""
     home_cell: str = ""
+    home_path: str = ""  # the routes only the home cell serves (the tenant's flux.home, design section 3.1)
     cells: list[Cell] = field(default_factory=list)
     workloads: list[Workload] = field(default_factory=list)
     routes: list[Route] = field(default_factory=list)
@@ -128,6 +129,7 @@ class Application:
     destinations: list[Destination] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
     objects: list[dict[str, Any]] = field(default_factory=list, repr=False)  # the built configuration (labdocs.py)
+    home_objects: list[dict[str, Any]] = field(default_factory=list, repr=False)  # the home path's, built
 
     @property
     def slug(self) -> str:
@@ -327,8 +329,9 @@ def read_cells(iac: Path, env: str) -> dict[str, Cell]:
 def read_tenant_catalogue(iac: Path, env: str) -> dict[str, dict[str, dict[str, Any]]] | None:
     """aks-terraform's tenant catalogue (``tenants/catalogue/<env>/<namespace>.yaml``, the cells and their zones in
     ``tenants/envs/<env>.tfvars``): namespace -> cluster -> {team, contact, zone, url, path, zone_domain,
-    home_cell}. A tenant is in every cell that holds its zone, or in the cells it names; a cell may sync another
-    path (``flux.cell_paths``). None when the checkout has no catalogue (before the tenants stack)."""
+    home_cell, home_path}. A tenant is in every cell that holds its zone, or in the cells it names; a cell may sync
+    another path (``flux.cell_paths``); the home cell (``flux.home``) also syncs the routes only it serves.
+    None when the checkout has no catalogue (before the tenants stack)."""
     tfvars = iac / "tenants" / "envs" / f"{env}.tfvars"
     if not tfvars.is_file():
         return None
@@ -353,6 +356,8 @@ def read_tenant_catalogue(iac: Path, env: str) -> dict[str, dict[str, dict[str, 
         flux = tenant.get("flux") or {}
         substitute = flux.get("substitute") or {}
         cell_paths = flux.get("cell_paths") or {}
+        home = flux.get("home") or {}
+        home_cell = str(home.get("cell") or substitute.get("home_cell", ""))  # substitute: before flux.home
         cells = tenant.get("cells") or [c for c, zones in zones_of.items() if zone in zones]
         for cell in cells:
             path = str(cell_paths.get(cell) or flux.get("path") or "./")
@@ -363,7 +368,10 @@ def read_tenant_catalogue(iac: Path, env: str) -> dict[str, dict[str, dict[str, 
                 "url": str(flux.get("url", "")),
                 "path": path.removeprefix("./").strip("/") or ".",
                 "zone_domain": str(substitute.get("zone_domain", "")),
-                "home_cell": str(substitute.get("home_cell", "")),
+                "home_cell": home_cell,
+                "home_path": (
+                    str(home.get("path", "")).removeprefix("./").strip("/") if home and str(cell) == home_cell else ""
+                ),
             }
     return found
 
@@ -1194,6 +1202,7 @@ def collect(sources: Sources) -> list[Application]:
             source_path=m.get("path", ""),
             zone_domain=m.get("zone_domain", ""),
             home_cell=m.get("home_cell", ""),
+            home_path=m.get("home_path", ""),
             cells=[cells[c] for c in per_cell],
         )
         other_paths = sorted({f"{c}: {v['path']}" for c, v in per_cell.items() if v.get("path") != m.get("path")})
@@ -1205,6 +1214,9 @@ def collect(sources: Sources) -> list[Application]:
         if repo is not None and app.source_path:
             objects = build_manifests(repo, app.source_path)
             app.objects = objects
+            if app.home_path:
+                app.home_objects = build_manifests(repo, app.home_path)
+                objects = objects + app.home_objects
             app.workloads, app.routes, app.services = describe(objects, namespace)
             mentions = mentioned_names(repo, app.source_path, [str(e.get("fqdn", "")) for e in entries])
             if not objects:

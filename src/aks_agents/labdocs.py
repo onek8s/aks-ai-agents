@@ -345,7 +345,7 @@ class RouteInfo:
     paths: list[str]
     backends: list[str]
     gateway: str
-    home_cell: str
+    home_cell: str  # set when only the home cell has the route (the tenant's flux.home)
 
 
 @dataclass
@@ -382,7 +382,8 @@ def _in(obj: dict[str, Any], namespace: str) -> bool:
 def sections_of(app: t.Application, sources: dict[str, AppSource]) -> list[Section]:
     cell = _cell(app)
     values = t._values(app, cell) if cell else {}
-    objects = [o for o in app.objects if _in(o, app.namespace)]
+    home_objects = [o for o in app.home_objects if _in(o, app.namespace)]
+    objects = [o for o in app.objects if _in(o, app.namespace)] + home_objects
     services = []
     for o in objects:
         if o.get("kind") != "Service":
@@ -418,7 +419,7 @@ def sections_of(app: t.Application, sources: dict[str, AppSource]) -> list[Secti
                 paths=paths,
                 backends=backends,
                 gateway=t.substitute(f"{parent.get('namespace', app.namespace)}/{parent.get('name', '')}", values),
-                home_cell=t.substitute(str((meta.get("annotations") or {}).get("platform/home-cell", "")), values),
+                home_cell=app.home_cell if any(o is h for h in home_objects) else "",
             )
         )
     services.sort(key=lambda s: s.name)
@@ -767,12 +768,12 @@ def application_section(lab: Lab, zone: str, s: Section) -> list[str]:
                 out.append(f"| {_code(svc.name)} | {p.port} | {_code(p.target)} | {protocol} |")
         out.append("")
     if s.routes:
-        out += ["| Route | Hostnames | Paths | Backends | Gateway | platform/home-cell |", "|---|---|---|---|---|---|"]
+        out += ["| Route | Hostnames | Paths | Backends | Gateway | Cells |", "|---|---|---|---|---|---|"]
         for r in s.routes:
             out.append(
                 f"| {_code(r.name)} | {'<br/>'.join(_code(h) for h in r.hostnames) or '-'} | "
                 f"{', '.join(_code(p) for p in r.paths)} | {', '.join(_code(b) for b in r.backends) or '-'} | "
-                f"{_code(r.gateway)} | {_code(r.home_cell) if r.home_cell else '-'} |"
+                f"{_code(r.gateway)} | {('home cell ' + _code(r.home_cell)) if r.home_cell else 'every cell'} |"
             )
         out.append("")
     if not s.services and not s.routes:

@@ -62,6 +62,7 @@ def test_the_tenant_catalogue_names_each_tenant_in_the_cells_of_its_zone():
     assert az3["zone"] == "int-se" and az3["path"] == "firewall-egress" and az3["team"] == "example"
     assert az3["contact"] == "https://github.com/onek8s/aks-fluxcd-example/issues"
     assert az3["zone_domain"] == "int-se.dev.onek8s.lol" and az3["home_cell"] == "aks-dev-int-stateless-az3"
+    assert az3["home_path"] == "firewall-egress/home"  # flux.home: the routes only the home cell serves
     fi = found["int-fi-example"]
     assert fi["aks-dev-int-stateless-az3"]["path"] == "firewall-egress-int-fi"
     assert fi["aks-dev-int-stateful"]["path"] == "apps"  # cell_paths
