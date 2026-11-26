@@ -175,7 +175,7 @@ def read_cell_settings(iac: Path, env: str, cells: dict[str, t.Cell]) -> dict[st
     ``envs/dev-int-stateless-az3.tfvars``: a file whose name the cell's starts with)."""
     files = {f.stem: t._strip_hcl_comments(f.read_text()) for f in sorted((iac / "envs").glob(f"{env}-*.tfvars"))}
     pool_defaults = _optional_defaults(_variable(iac, "zone_node_pools"))
-    gateway_default = _default(_variable(iac, "gateway_implementation"))
+    gateways_default = _default(_variable(iac, "gateways_enabled"))
     out: dict[str, CellSettings] = {}
     for stem, text in files.items():
         name = re.search(r'(?m)^name\s*=\s*"([^"]*)"', text)
@@ -188,8 +188,10 @@ def read_cell_settings(iac: Path, env: str, cells: dict[str, t.Cell]) -> dict[st
         settings.location = (_hcl_value(texts, "location") or "").strip('"')
         pool = _hcl_block(texts, "default_node_pool") or ""
         settings.availability_zones = t._strings(pool, "availability_zones")
-        gateway = _hcl_value(texts, "gateway_implementation")
-        settings.gateway_implementation = gateway_default if gateway is None else gateway.strip('"').replace("null", "")
+        # App Routing's Istio serves every cell's Gateways; `gateways_enabled = false` (the stateful cell) none.
+        enabled = _hcl_value(texts, "gateways_enabled")
+        enabled = gateways_default if enabled is None else enabled
+        settings.gateway_implementation = "" if (enabled or "true").strip() == "false" else "approuting-istio"
         zones = _hcl_block(texts, "isolation_zones")
         settings.zones = sorted(t._entries(zones)) if zones else []
         pools = _hcl_block(texts, "zone_node_pools")
