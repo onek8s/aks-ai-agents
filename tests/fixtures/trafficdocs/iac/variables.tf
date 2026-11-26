@@ -1,7 +1,7 @@
-variable "gateway_implementation" {
-  type        = string
-  default     = "approuting-istio"
-  description = "The Gateway API implementation"
+variable "gateways_enabled" {
+  type        = bool
+  default     = true
+  description = "Whether App Routing's Istio serves the cluster's Gateways"
 }
 
 variable "zone_node_pools" {

@@ -8,4 +8,6 @@ flux:
   path: ./firewall-egress
   substitute:
     zone_domain: int-se.dev.onek8s.lol
-    home_cell: aks-dev-int-stateless-az3
+  home:
+    cell: aks-dev-int-stateless-az3
+    path: ./firewall-egress/home

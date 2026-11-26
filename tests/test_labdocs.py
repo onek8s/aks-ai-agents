@@ -69,7 +69,7 @@ def test_the_section_states_what_git_deploys():
 def test_the_zone_facts_cells_pools_gateway_allow_list():
     se = generate().files["int-se.md"]
     assert "`aks-dev-int-stateless-az3` (germanywestcentral, availability zone 3)" in se
-    assert "`int-se-gateway/int-se` (traefik), listener HTTPS 443 `*.int-se.dev.onek8s.lol`" in se
+    assert "`int-se-gateway/int-se` (approuting-istio), listener HTTPS 443 `*.int-se.dev.onek8s.lol`" in se
     assert "| `aks-dev-int-stateless-az3` | `se1spot` | amd64 | spot | Standard_D2alds_v6 | 0-1 |" in se
     assert "| `aks-dev-int-stateless-az3` | `se1arm` | arm64 | on-demand | Standard_D2pds_v6 | 0-1 |" in se
     assert "| Zone allow-list | `login.microsoftonline.com`, `*.blob.example.net`" in se
@@ -82,11 +82,11 @@ def test_cell_settings_merge_the_shared_file_and_the_defaults():
     cells = t.read_cells(FIXTURES / "iac", "dev")
     settings = lab.read_cell_settings(FIXTURES / "iac", "dev", cells)
     az3 = settings["aks-dev-int-stateless-az3"]
-    assert az3.gateway_implementation == "traefik"  # from envs/dev-int-stateless.tfvars
+    assert az3.gateway_implementation == "approuting-istio"  # gateways_enabled, the default
     assert az3.availability_zones == ["3"] and az3.zones == ["int-se"]
     assert az3.pools["max_count"] == "1" and az3.pools["spot_max_count"] == "1"  # the cell's, then the default
     assert settings["aks-dev-int-stateless-az4"].pools is None
-    assert settings["aks-dev-int-stateless-az4"].gateway_implementation == "traefik"
+    assert settings["aks-dev-int-stateless-az4"].gateway_implementation == "approuting-istio"
     assert lab.read_fleet_zones(FIXTURES / "fleet", "dev-int-stateless-az3") == {"int-se": "int-se.dev.onek8s.lol"}
 
 
