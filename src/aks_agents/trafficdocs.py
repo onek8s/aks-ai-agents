@@ -837,7 +837,7 @@ def application_picture(app: Application) -> str:
     if app.routes and cell:
         gateway = substitute(app.routes[0].gateway, _values(app, cell))
     internal = cell is not None and cell.exposure == "int"
-    client = "Corporate network and VPN clients" if internal else "Internet via Traffic Manager"
+    client = "Corporate network and VPN clients" if internal else "Internet"
     lines = ["flowchart LR", f'    client["{_label(client)}"]']
     cell_text = f"Cell {cell.name} - {cell.model}" if cell else "Cell"
     lines.append(f'    subgraph CELL["{_label(cell_text)}"]')
